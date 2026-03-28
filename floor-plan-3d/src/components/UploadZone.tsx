@@ -71,6 +71,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ onFileSelect, disabled }) => {
         accept={ALLOWED_MIME_TYPES.join(',')}
         ref={fileInputRef}
         onChange={handleChange}
+        onClick={(e) => e.stopPropagation()}
         className="hidden"
       />
       <div className="upload-icon">📁</div>

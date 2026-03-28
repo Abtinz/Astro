@@ -3,11 +3,11 @@ import Stepper from './components/Stepper';
 import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
-import { generateFloorPlanRender, generateVoxelScene } from './services/gemini';
+import { generateFloorPlanRender, generateVoxelScene, fixVoxelScene } from './services/gemini';
 import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
-type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'error';
+type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'validating_voxels' | 'error';
 type ViewMode = 'upload' | 'render' | 'voxel';
 
 const App: React.FC = () => {
@@ -92,7 +92,21 @@ const App: React.FC = () => {
         }
       });
 
-      const code = fixZFighting(injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(codeRaw)))));
+      setStatus('validating_voxels');
+      setThinkingText(null);
+
+      let fixThoughtBuffer = '';
+      const fixedCodeRaw = await fixVoxelScene(renderedImage, codeRaw, (fragment) => {
+        fixThoughtBuffer += fragment;
+        const matches = fixThoughtBuffer.match(/\*\*([^*]+)\*\*/g);
+        if (matches && matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const header = lastMatch.replace(/\*\*/g, '').trim();
+          setThinkingText((prev) => (prev === header ? prev : header));
+        }
+      });
+
+      const code = fixZFighting(injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(fixedCodeRaw)))));
       setVoxelCode(code);
       setViewMode('voxel');
       setStatus('idle');
@@ -133,11 +147,12 @@ const App: React.FC = () => {
     setThinkingText(null);
   };
 
-  const isLoading = status === 'generating_render' || status === 'generating_voxels';
+  const isLoading = status === 'generating_render' || status === 'generating_voxels' || status === 'validating_voxels';
 
   const getLoadingStatus = () => {
     if (status === 'generating_render') return 'Generating 3D render with Gemini Flash...';
     if (status === 'generating_voxels') return 'Generating 3D voxel scene with Gemini Pro...';
+    if (status === 'validating_voxels') return 'Validating and fixing 3D scene with Gemini Pro...';
     return '';
   };
 

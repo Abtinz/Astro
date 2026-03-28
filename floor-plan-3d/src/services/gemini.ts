@@ -35,6 +35,17 @@ Make it interactive with OrbitControls for mouse rotation/zoom AND WASD keyboard
 - E: move camera up
 The WASD movement should translate the camera and orbit target together so the user can walk through the scene.`;
 
+const FIX_VOXEL_PROMPT = `I have provided an image of a 3D rendered floor plan, along with the HTML (Three.js) code that was generated to represent it.
+Your task is to carefully review the provided image and code, checking for any mistakes or missing elements.
+Specifically, look for and fix the following issues:
+1. Missing walls, doors or features that are present in the image but not in the code.
+2. Intersecting objects (e.g. stairs clipping through the ceiling or walls).
+3. Incorrect dimensions or proportions.
+4. Z-fighting or flickering textures (ensure tiny gaps exist between overlapping coplanar faces).
+5. Floating objects or misaligned elements.
+
+Fix the code and output the complete, corrected single-page HTML file (with Three.js code inside). Ensure the final code satisfies all requirements of a beautifully rendered 3D voxel scene.`;
+
 /**
  * Sends the customer's floor plan + style reference to Gemini Flash
  * and returns a 3D-rendered image as a base64 data URL.
@@ -110,6 +121,65 @@ export const generateVoxelScene = async (
         },
         {
           text: VOXEL_PROMPT,
+        },
+      ],
+    },
+    config: {
+      thinkingConfig: {
+        includeThoughts: true,
+      },
+    },
+  });
+
+  for await (const chunk of response) {
+    const candidates = chunk.candidates;
+    if (candidates?.[0]?.content?.parts) {
+      for (const part of candidates[0].content.parts) {
+        const p = part as any;
+        if (p.thought) {
+          if (onThoughtUpdate && p.text) {
+            onThoughtUpdate(p.text);
+          }
+        } else if (p.text) {
+          fullHtml += p.text;
+        }
+      }
+    }
+  }
+
+  return extractHtmlFromText(fullHtml);
+};
+
+/**
+ * Sends a generated Three.js HTML scene back to Gemini Pro along with the reference image,
+ * asking it to diagnose errors and fix the code. Streams thought updates.
+ */
+export const fixVoxelScene = async (
+  imageBase64: string,
+  generatedHtml: string,
+  onThoughtUpdate?: (thought: string) => void
+): Promise<string> => {
+  const base64Data = imageBase64.split(',')[1] || imageBase64;
+  const mimeMatch = imageBase64.match(/^data:(.*?);base64,/);
+  const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+  let fullHtml = '';
+
+  const response = await ai.models.generateContentStream({
+    model: 'gemini-3-pro-preview',
+    contents: {
+      parts: [
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Data,
+          },
+        },
+        {
+          text: FIX_VOXEL_PROMPT,
+        },
+        {
+          text: `Here is the currently generated code to fix:\n` + generatedHtml,
         },
       ],
     },

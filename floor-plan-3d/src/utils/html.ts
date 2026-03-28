@@ -86,13 +86,20 @@ export const injectWASDControls = (html: string): string => {
         return null;
       }
 
+      let cachedControls = undefined;
       function resolveControls() {
-        if (window._controls && window._controls.target) return window._controls;
-        if (window.controls && window.controls.target) return window.controls;
-        for (const k of Object.keys(window)) {
-          const v = window[k];
-          if (v && v.target && v.update && typeof v.update === 'function') return v;
-        }
+        if (cachedControls !== undefined) return cachedControls;
+        if (window._controls && window._controls.target) { cachedControls = window._controls; return cachedControls; }
+        if (window.controls && window.controls.target) { cachedControls = window.controls; return cachedControls; }
+        try {
+          for (const k of Object.keys(window)) {
+            const v = window[k];
+            if (v && v.target && v.update && typeof v.update === 'function') {
+              cachedControls = v; return v;
+            }
+          }
+        } catch(e) {}
+        cachedControls = null;
         return null;
       }
 
@@ -506,10 +513,10 @@ export const fixZFighting = (html: string): string => {
     </script>
   `;
 
-  if (html.toLowerCase().includes('</body>')) {
-    return html.replace(/<\/body>/i, `${script}</body>`);
+  if (patched.toLowerCase().includes('</body>')) {
+    return patched.replace(/<\/body>/i, `${script}</body>`);
   }
-  return html + script;
+  return patched + script;
 };
 
 /**
