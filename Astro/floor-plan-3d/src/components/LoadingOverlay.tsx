@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import loadingVideoUrl from '../assets/loading.mp4';
+import loadingVideoUrl from '../assets/loading.webm';
 
 interface LoadingOverlayProps {
   status: string;
