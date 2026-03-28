@@ -48,7 +48,7 @@ const App: React.FC = () => {
     // Pre-load demo scene HTML
     if (isDemo) {
       (async () => {
-        for (const url of ['/demo-scene.html', `${import.meta.env.BASE_URL || '/'}demo-scene.html`]) {
+        for (const url of ['/demo-scene.html', `${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}demo-scene.html`]) {
           try {
             const resp = await fetch(url);
             if (resp.ok) {
@@ -131,7 +131,7 @@ const App: React.FC = () => {
       const fetchScene = async (): Promise<string> => {
         if (demoSceneRef.current) return demoSceneRef.current;
         // Try multiple paths since BASE_URL varies between dev and Vercel
-        for (const url of ['/demo-scene.html', `${import.meta.env.BASE_URL || '/'}demo-scene.html`]) {
+        for (const url of ['/demo-scene.html', `${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}demo-scene.html`]) {
           try {
             const resp = await fetch(url);
             if (resp.ok) {
