@@ -355,15 +355,24 @@ export const fixZFighting = (html: string): string => {
           cam.updateProjectionMatrix();
         }
 
-        // Separate overlapping stair meshes by adding tiny Y offsets
+        // Separate overlapping stair meshes by adding tiny Y offsets.
+        // Keep offsets bounded to avoid pushing steps into ceilings.
         var stairIndex = 0;
         sc.traverse(function(child) {
           if (child.isMesh && child.geometry) {
             var params = child.geometry.parameters;
             // Detect stair-like meshes: small boxes stacked vertically
             if (params && params.width && params.height && params.depth) {
-              if (params.width < 10 && params.height < 3 && params.depth < 10) {
-                child.position.y += stairIndex * 0.01;
+              var hasStairName = typeof child.name === 'string' && /stair|step/i.test(child.name);
+              var looksLikeStep = (
+                params.width <= 8 &&
+                params.depth <= 8 &&
+                params.height > 0.05 &&
+                params.height <= 1.5
+              );
+              if (hasStairName || looksLikeStep) {
+                // Bounded micro-offsets to prevent z-fighting without large drift.
+                child.position.y += (stairIndex % 6) * 0.002;
                 stairIndex++;
               }
             }
@@ -379,6 +388,55 @@ export const fixZFighting = (html: string): string => {
             }
           }
         });
+
+        // Keep stairs below lowest detected ceiling slab to avoid clipping.
+        var lowestCeilingBottom = Infinity;
+        var stairMeshes = [];
+        sc.traverse(function(child) {
+          if (!(child && child.isMesh && child.geometry && child.geometry.parameters)) return;
+          var p = child.geometry.parameters;
+          if (!(p.width && p.height && p.depth)) return;
+
+          var isCeilingLike = (
+            p.height <= 0.8 &&
+            p.width >= 6 &&
+            p.depth >= 6 &&
+            child.position &&
+            child.position.y > 1
+          );
+          if (isCeilingLike) {
+            var bottom = child.position.y - p.height / 2;
+            if (bottom < lowestCeilingBottom) lowestCeilingBottom = bottom;
+          }
+
+          var hasStairName = typeof child.name === 'string' && /stair|step/i.test(child.name);
+          var looksLikeStep = (
+            p.width <= 8 &&
+            p.depth <= 8 &&
+            p.height > 0.05 &&
+            p.height <= 1.5
+          );
+          if (hasStairName || looksLikeStep) {
+            stairMeshes.push(child);
+          }
+        });
+
+        if (stairMeshes.length > 0 && lowestCeilingBottom < Infinity) {
+          var stairTop = -Infinity;
+          for (var s = 0; s < stairMeshes.length; s++) {
+            var sp = stairMeshes[s].geometry.parameters;
+            var top = stairMeshes[s].position.y + sp.height / 2;
+            if (top > stairTop) stairTop = top;
+          }
+
+          var desiredTop = lowestCeilingBottom - 0.6;
+          if (stairTop > desiredTop) {
+            var pushDown = stairTop - desiredTop;
+            for (var j = 0; j < stairMeshes.length; j++) {
+              stairMeshes[j].position.y -= pushDown;
+            }
+          }
+        }
       }
 
       setTimeout(patchScene, 2000);
