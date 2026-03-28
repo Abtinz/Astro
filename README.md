@@ -38,7 +38,7 @@ A three-step AI pipeline:
 Download the rendered image or the full 3D scene as a standalone HTML file.
 
 <p align="center">
-  <img src="docs/screenshots/app-upload.png" alt="3D Floor Plan Visualizer app" width="80%" />
+  <img src="docs/screenshots/visualizer-upload.png" alt="3D Floor Plan Visualizer app" width="80%" />
 </p>
 
 ### Ready to Build?
