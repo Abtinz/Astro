@@ -1,9 +1,9 @@
 import React from 'react';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 interface LoadingOverlayProps {
   status: string;
   thinkingText?: string | null;
-  progress?: number; // 0-100
 }
 
 const PHASE_MAP: Record<string, { label: string; progress: number }> = {
@@ -14,27 +14,27 @@ const PHASE_MAP: Record<string, { label: string; progress: number }> = {
   'Validating and fixing 3D scene...': { label: 'Phase 4 of 4', progress: 85 },
 };
 
+const lottieUrl = `${import.meta.env.BASE_URL || '/'}loading.json`.replace(/\/\//g, '/');
+
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status, thinkingText }) => {
   const phase = PHASE_MAP[status];
 
   return (
     <div className="loading-overlay">
       <div className="loading-content">
-        {/* Orbital spinner */}
-        <div className="loading-spinner">
-          <div className="loading-spinner__ring" />
-          <div className="loading-spinner__ring" />
-          <div className="loading-spinner__ring" />
-          <div className="loading-spinner__dot" />
+        <div className="loading-lottie">
+          <DotLottieReact
+            src={lottieUrl}
+            loop
+            autoplay
+            backgroundColor="transparent"
+          />
         </div>
 
-        {/* Status text */}
         <div className="loading-status">{status}</div>
 
-        {/* Phase indicator */}
         {phase && <div className="loading-phase">{phase.label}</div>}
 
-        {/* Progress bar */}
         {phase && (
           <div className="loading-progress">
             <div
@@ -44,7 +44,6 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status, thinkingText })
           </div>
         )}
 
-        {/* Thinking text */}
         {thinkingText ? (
           <div className="loading-thinking">
             {thinkingText}<span className="loading-dots" />
