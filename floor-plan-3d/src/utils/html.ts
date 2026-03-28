@@ -132,35 +132,39 @@ export const injectCityEnvironment = (html: string): string => {
         const cityGroup = new T.Group();
         cityGroup.name = 'city_environment';
 
-        // Ground plane
-        const groundGeo = new T.PlaneGeometry(600, 600);
-        const groundMat = new T.MeshLambertMaterial({ color: 0x3a3a3a });
-        const ground = new T.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.5;
+        // Enable logarithmic depth buffer on renderer if possible
+        const renderer = window.renderer;
+        if (renderer) { renderer.logarithmicDepthBuffer = true; }
+
+        // Ground plane — use a solid box to avoid z-fighting
+        const ground = new T.Mesh(
+          new T.BoxGeometry(600, 1, 600),
+          new T.MeshLambertMaterial({ color: 0x3a3a3a })
+        );
+        ground.position.y = -1;
         ground.receiveShadow = true;
         cityGroup.add(ground);
 
-        // Road ring around the building
-        const roadGeo = new T.PlaneGeometry(120, 120);
-        const roadMat = new T.MeshLambertMaterial({ color: 0x555555 });
-        const road = new T.Mesh(roadGeo, roadMat);
-        road.rotation.x = -Math.PI / 2;
-        road.position.y = -0.3;
+        // Road — raised box, no coplanar planes
+        const road = new T.Mesh(
+          new T.BoxGeometry(120, 0.2, 120),
+          new T.MeshLambertMaterial({ color: 0x555555 })
+        );
+        road.position.y = -0.4;
         cityGroup.add(road);
 
-        // Road markings (dashed center lines)
+        // Road markings — thin boxes raised above road
         const dashMat = new T.MeshLambertMaterial({ color: 0xdddd44 });
         for (let i = -55; i <= 55; i += 6) {
-          const dash = new T.Mesh(new T.BoxGeometry(2, 0.05, 0.3), dashMat);
-          dash.position.set(i, -0.25, -45);
+          const dash = new T.Mesh(new T.BoxGeometry(2, 0.1, 0.3), dashMat);
+          dash.position.set(i, -0.2, -45);
           cityGroup.add(dash);
-          const dash2 = new T.Mesh(new T.BoxGeometry(0.3, 0.05, 2), dashMat);
-          dash2.position.set(-45, -0.25, i);
+          const dash2 = new T.Mesh(new T.BoxGeometry(0.3, 0.1, 2), dashMat);
+          dash2.position.set(-45, -0.2, i);
           cityGroup.add(dash2);
         }
 
-        // Sidewalk
+        // Sidewalk — solid boxes clearly above road
         const sidewalkMat = new T.MeshLambertMaterial({ color: 0x999999 });
         const swPositions = [
           { x: 0, z: -52, sx: 110, sz: 4 },
@@ -169,8 +173,8 @@ export const injectCityEnvironment = (html: string): string => {
           { x: 52, z: 0, sx: 4, sz: 110 },
         ];
         swPositions.forEach(p => {
-          const sw = new T.Mesh(new T.BoxGeometry(p.sx, 0.3, p.sz), sidewalkMat);
-          sw.position.set(p.x, -0.35, p.z);
+          const sw = new T.Mesh(new T.BoxGeometry(p.sx, 0.4, p.sz), sidewalkMat);
+          sw.position.set(p.x, -0.3, p.z);
           cityGroup.add(sw);
         });
 
