@@ -3,11 +3,11 @@ import Stepper from './components/Stepper';
 import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
-import { generateFloorPlanRender, generateVoxelScene, fixVoxelScene } from './services/gemini';
+import { generateFloorPlanRender, extractWallJSON, generateBaseScene, generateFurnitureScene, fixVoxelScene } from './services/gemini';
 import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
-type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'validating_voxels' | 'error';
+type AppStatus = 'idle' | 'generating_render' | 'extracting_walls' | 'generating_base_scene' | 'generating_furniture' | 'validating_voxels' | 'error';
 type ViewMode = 'upload' | 'render' | 'voxel';
 
 const App: React.FC = () => {
@@ -75,36 +75,43 @@ const App: React.FC = () => {
   const handleGenerateVoxels = async () => {
     if (!renderedImage) return;
 
-    setStatus('generating_voxels');
+    setStatus('extracting_walls');
     setErrorMsg('');
     setThinkingText(null);
 
     let thoughtBuffer = '';
-
-    try {
-      const codeRaw = await generateVoxelScene(renderedImage, (fragment) => {
+    const extractHeader = (fragment: string) => {
         thoughtBuffer += fragment;
         const matches = thoughtBuffer.match(/\*\*([^*]+)\*\*/g);
         if (matches && matches.length > 0) {
-          const lastMatch = matches[matches.length - 1];
-          const header = lastMatch.replace(/\*\*/g, '').trim();
-          setThinkingText((prev) => (prev === header ? prev : header));
+            const lastMatch = matches[matches.length - 1];
+            const header = lastMatch.replace(/\*\*/g, '').trim();
+            setThinkingText((prev) => (prev === header ? prev : header));
         }
-      });
+    };
 
+    try {
+      // Phase 1: Extract JSON
+      const wallJson = await extractWallJSON(renderedImage, extractHeader);
+      
+      // Phase 2: Base Scene
+      setStatus('generating_base_scene');
+      setThinkingText(null);
+      thoughtBuffer = '';
+      const baseHtml = await generateBaseScene(renderedImage, wallJson, extractHeader);
+
+      // Phase 3: Furniture
+      setStatus('generating_furniture');
+      setThinkingText(null);
+      thoughtBuffer = '';
+      const furnitureHtml = await generateFurnitureScene(renderedImage, baseHtml, extractHeader);
+
+      // Phase 4: Validation
       setStatus('validating_voxels');
       setThinkingText(null);
-
-      let fixThoughtBuffer = '';
-      const fixedCodeRaw = await fixVoxelScene(renderedImage, codeRaw, (fragment) => {
-        fixThoughtBuffer += fragment;
-        const matches = fixThoughtBuffer.match(/\*\*([^*]+)\*\*/g);
-        if (matches && matches.length > 0) {
-          const lastMatch = matches[matches.length - 1];
-          const header = lastMatch.replace(/\*\*/g, '').trim();
-          setThinkingText((prev) => (prev === header ? prev : header));
-        }
-      });
+      thoughtBuffer = '';
+      
+      const fixedCodeRaw = await fixVoxelScene(renderedImage, furnitureHtml, extractHeader);
 
       const code = fixZFighting(injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(fixedCodeRaw)))));
       setVoxelCode(code);
@@ -147,12 +154,14 @@ const App: React.FC = () => {
     setThinkingText(null);
   };
 
-  const isLoading = status === 'generating_render' || status === 'generating_voxels' || status === 'validating_voxels';
+  const isLoading = status === 'generating_render' || status === 'extracting_walls' || status === 'generating_base_scene' || status === 'generating_furniture' || status === 'validating_voxels';
 
   const getLoadingStatus = () => {
     if (status === 'generating_render') return 'Generating 3D render with Gemini Flash...';
-    if (status === 'generating_voxels') return 'Generating 3D voxel scene with Gemini Pro...';
-    if (status === 'validating_voxels') return 'Validating and fixing 3D scene with Gemini Pro...';
+    if (status === 'extracting_walls') return 'Extracting wall coordinate map...';
+    if (status === 'generating_base_scene') return 'Building base architectural shell...';
+    if (status === 'generating_furniture') return 'Generating and placing furniture...';
+    if (status === 'validating_voxels') return 'Validating and fixing 3D scene...';
     return '';
   };
 
@@ -213,7 +222,7 @@ const App: React.FC = () => {
         )}
         {renderedImage && (
           <button className="btn btn-primary" onClick={handleGenerateVoxels} disabled={isLoading}>
-            {status === 'generating_voxels' ? 'Generating...' : voxelCode ? 'Regenerate 3D Scene' : 'Generate 3D Scene'}
+            {status !== 'idle' && status !== 'error' && status !== 'generating_render' ? 'Generating...' : voxelCode ? 'Regenerate 3D Scene' : 'Generate 3D Scene'}
           </button>
         )}
 

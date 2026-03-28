@@ -19,6 +19,26 @@ export const extractHtmlFromText = (text: string): string => {
 };
 
 /**
+ * Extracts a JSON document from a string that might contain
+ * conversational text, markdown code blocks, etc.
+ */
+export const extractJsonFromText = (text: string): string => {
+  if (!text) return '';
+
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+
+  const jsonMatch = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if (jsonMatch) {
+      return jsonMatch[0].trim();
+  }
+
+  return text.trim();
+};
+
+/**
  * Injects CSS to hide common overlay/text elements in Three.js scenes.
  */
 export const hideBodyText = (html: string): string => {
