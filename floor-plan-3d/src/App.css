@@ -253,6 +253,47 @@ body {
   font-size: 0.9rem;
 }
 
+.deep-agent-health {
+  padding: 0.75rem 1rem;
+  border: 2px solid #111;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.deep-agent-health.ok {
+  background: #f0fff4;
+  color: #22543d;
+  border-color: #22543d;
+}
+
+.deep-agent-health.bad {
+  background: #fff5f5;
+  color: #c53030;
+  border-color: #c53030;
+}
+
+.deep-agent-output {
+  border: 2px solid #111;
+  background: #fafafa;
+  padding: 1rem;
+}
+
+.deep-agent-output-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.deep-agent-output pre {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  max-height: 280px;
+  overflow: auto;
+}
+
 /* Buttons */
 .actions {
   display: flex;

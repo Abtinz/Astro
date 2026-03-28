@@ -4,16 +4,19 @@ import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
 import { generateFloorPlanRender, generateVoxelScene, fixVoxelScene } from './services/gemini';
+import { checkDeepAgentHealth, runDeepAgent } from './services/deepAgent';
 import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
-type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'validating_voxels' | 'error';
+type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'validating_voxels' | 'running_deep_agent' | 'error';
 type ViewMode = 'upload' | 'render' | 'voxel';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [thinkingText, setThinkingText] = useState<string | null>(null);
+  const [deepAgentHealthy, setDeepAgentHealthy] = useState<boolean | null>(null);
+  const [deepAgentResult, setDeepAgentResult] = useState<string | null>(null);
 
   // Data
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -50,6 +53,7 @@ const App: React.FC = () => {
     setVoxelCode(null);
     setViewMode('upload');
     setErrorMsg('');
+    setDeepAgentResult(null);
   };
 
   const handleGenerateRender = async () => {
@@ -145,14 +149,54 @@ const App: React.FC = () => {
     setStatus('idle');
     setErrorMsg('');
     setThinkingText(null);
+    setDeepAgentResult(null);
   };
 
-  const isLoading = status === 'generating_render' || status === 'generating_voxels' || status === 'validating_voxels';
+  const handleDeepAgentHealth = async () => {
+    setErrorMsg('');
+    try {
+      const ok = await checkDeepAgentHealth();
+      setDeepAgentHealthy(ok);
+      if (!ok) {
+        setErrorMsg('Deep agent API is not healthy.');
+      }
+    } catch (err: any) {
+      setDeepAgentHealthy(false);
+      setErrorMsg(err.message || 'Failed to reach deep agent API.');
+    }
+  };
+
+  const handleRunDeepAgent = async () => {
+    setStatus('running_deep_agent');
+    setThinkingText(null);
+    setErrorMsg('');
+    setDeepAgentResult(null);
+
+    try {
+      const result = await runDeepAgent({
+        task: 'Create a resilient strategy to improve floor-plan to 3D generation quality, with strict focus on door completeness and natural stairs/ceiling clearance.',
+        constraints: 'Use Gemini with retry/fallback and return actionable implementation guidance.',
+        context: `Current frontend status: ${status}. Has upload: ${Boolean(uploadedImage)}. Has render: ${Boolean(renderedImage)}. Has voxel scene: ${Boolean(voxelCode)}.`,
+        max_refinements: 2,
+      });
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      setDeepAgentResult(result.final_answer || 'Deep agent finished with no final answer text.');
+      setStatus('idle');
+    } catch (err: any) {
+      setStatus('error');
+      setErrorMsg(err.message || 'Deep agent run failed.');
+    }
+  };
+
+  const isLoading = status === 'generating_render' || status === 'generating_voxels' || status === 'validating_voxels' || status === 'running_deep_agent';
 
   const getLoadingStatus = () => {
     if (status === 'generating_render') return 'Generating 3D render with Gemini Flash...';
     if (status === 'generating_voxels') return 'Generating 3D voxel scene with Gemini Pro...';
     if (status === 'validating_voxels') return 'Validating and fixing 3D scene with Gemini Pro...';
+    if (status === 'running_deep_agent') return 'Running deep agent orchestration...';
     return '';
   };
 
@@ -247,7 +291,27 @@ const App: React.FC = () => {
             Start Over
           </button>
         )}
+
+        <button className="btn btn-secondary" onClick={handleDeepAgentHealth} disabled={isLoading}>
+          Check Deep Agent
+        </button>
+        <button className="btn btn-primary" onClick={handleRunDeepAgent} disabled={isLoading}>
+          {status === 'running_deep_agent' ? 'Running...' : 'Run Deep Agent'}
+        </button>
       </div>
+
+      {deepAgentHealthy !== null && (
+        <div className={`deep-agent-health ${deepAgentHealthy ? 'ok' : 'bad'}`}>
+          Deep Agent Health: {deepAgentHealthy ? 'OK' : 'UNHEALTHY'}
+        </div>
+      )}
+
+      {deepAgentResult && (
+        <div className="deep-agent-output">
+          <div className="deep-agent-output-title">Deep Agent Output</div>
+          <pre>{deepAgentResult}</pre>
+        </div>
+      )}
     </div>
   );
 };
