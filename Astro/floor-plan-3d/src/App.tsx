@@ -47,11 +47,17 @@ const App: React.FC = () => {
 
     // Pre-load demo scene HTML
     if (isDemo) {
-      const base = import.meta.env.BASE_URL || '/';
-      fetch(`${base}demo-scene.html`)
-        .then(r => r.text())
-        .then(html => { demoSceneRef.current = html; })
-        .catch(err => console.error('Failed to pre-load demo scene:', err));
+      (async () => {
+        for (const url of ['/demo-scene.html', `${import.meta.env.BASE_URL || '/'}demo-scene.html`]) {
+          try {
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const html = await resp.text();
+              if (html.includes('<')) { demoSceneRef.current = html; return; }
+            }
+          } catch { /* try next */ }
+        }
+      })();
     }
   }, []);
 
@@ -121,58 +127,62 @@ const App: React.FC = () => {
     setThinkingText(null);
 
     if (isDemo) {
-      // Demo mode: fake multi-phase loading with pre-built scene
-      // Start fetching scene in parallel with animation
-      const scenePromise = demoSceneRef.current
-        ? Promise.resolve(demoSceneRef.current)
-        : fetch(`${import.meta.env.BASE_URL || '/'}demo-scene.html`).then(r => r.text());
+      // Demo mode: fetch scene in parallel with fake loading animation
+      const fetchScene = async (): Promise<string> => {
+        if (demoSceneRef.current) return demoSceneRef.current;
+        // Try multiple paths since BASE_URL varies between dev and Vercel
+        for (const url of ['/demo-scene.html', `${import.meta.env.BASE_URL || '/'}demo-scene.html`]) {
+          try {
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const html = await resp.text();
+              if (html.includes('<') ) { demoSceneRef.current = html; return html; }
+            }
+          } catch { /* try next */ }
+        }
+        throw new Error('Could not load demo scene');
+      };
+      const scenePromise = fetchScene();
 
       const demoPhases: { status: AppStatus; texts: { text: string; delay: number }[] }[] = [
-        {
-          status: 'extracting_walls',
-          texts: [
-            { text: 'Detecting wall segments...', delay: 700 },
-            { text: 'Building coordinate map...', delay: 600 },
-          ],
-        },
-        {
-          status: 'generating_base_scene',
-          texts: [
-            { text: 'Constructing floor geometry...', delay: 700 },
-            { text: 'Extruding wall volumes...', delay: 600 },
-          ],
-        },
-        {
-          status: 'generating_furniture',
-          texts: [
-            { text: 'Placing bedroom furniture...', delay: 600 },
-            { text: 'Adding bathroom fixtures...', delay: 500 },
-            { text: 'Arranging kitchen elements...', delay: 500 },
-          ],
-        },
-        {
-          status: 'validating_voxels',
-          texts: [
-            { text: 'Checking collision overlaps...', delay: 400 },
-            { text: 'Final scene validation...', delay: 300 },
-          ],
-        },
+        { status: 'extracting_walls', texts: [
+          { text: 'Detecting wall segments...', delay: 700 },
+          { text: 'Building coordinate map...', delay: 600 },
+        ]},
+        { status: 'generating_base_scene', texts: [
+          { text: 'Constructing floor geometry...', delay: 700 },
+          { text: 'Extruding wall volumes...', delay: 600 },
+        ]},
+        { status: 'generating_furniture', texts: [
+          { text: 'Placing bedroom furniture...', delay: 600 },
+          { text: 'Adding bathroom fixtures...', delay: 500 },
+          { text: 'Arranging kitchen elements...', delay: 500 },
+        ]},
+        { status: 'validating_voxels', texts: [
+          { text: 'Checking collision overlaps...', delay: 400 },
+          { text: 'Final scene validation...', delay: 300 },
+        ]},
       ];
 
-      for (const phase of demoPhases) {
-        setStatus(phase.status);
-        setThinkingText(null);
-        for (const t of phase.texts) {
-          setThinkingText(t.text);
-          await new Promise(r => setTimeout(r, t.delay));
+      try {
+        for (const phase of demoPhases) {
+          setStatus(phase.status);
+          setThinkingText(null);
+          for (const t of phase.texts) {
+            setThinkingText(t.text);
+            await new Promise(r => setTimeout(r, t.delay));
+          }
         }
-      }
 
-      const sceneHtml = await scenePromise;
-      setVoxelCode(sceneHtml);
-      setViewMode('voxel');
-      setStatus('idle');
-      setThinkingText(null);
+        const sceneHtml = await scenePromise;
+        setVoxelCode(sceneHtml);
+        setViewMode('voxel');
+        setStatus('idle');
+        setThinkingText(null);
+      } catch (err: any) {
+        setStatus('error');
+        setErrorMsg(err.message || 'Failed to load demo scene.');
+      }
       return;
     }
 
