@@ -4,7 +4,7 @@ import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
 import { generateFloorPlanRender, generateVoxelScene } from './services/gemini';
-import { hideBodyText, zoomCamera } from './utils/html';
+import { hideBodyText, zoomCamera, injectWASDControls } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
 type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'error';
@@ -92,7 +92,7 @@ const App: React.FC = () => {
         }
       });
 
-      const code = zoomCamera(hideBodyText(codeRaw));
+      const code = injectWASDControls(zoomCamera(hideBodyText(codeRaw)));
       setVoxelCode(code);
       setViewMode('voxel');
       setStatus('idle');
@@ -208,9 +208,9 @@ const App: React.FC = () => {
         )}
 
         {/* Generation buttons */}
-        {uploadedImage && !renderedImage && (
+        {uploadedImage && (
           <button className="btn btn-primary" onClick={handleGenerateRender} disabled={isLoading || !styleReference}>
-            {status === 'generating_render' ? 'Generating...' : 'Generate 3D Render'}
+            {status === 'generating_render' ? 'Generating...' : renderedImage ? 'Regenerate 3D Render' : 'Generate 3D Render'}
           </button>
         )}
         {renderedImage && (

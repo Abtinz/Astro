@@ -16,7 +16,14 @@ const VOXEL_PROMPT = `I have provided a 3D rendered floor plan image.
 Code a beautiful voxel art scene that accurately represents this floor plan layout.
 Write Three.js code as a single-page HTML file.
 Include all rooms, walls, furniture, and architectural features visible in the image.
-Make it interactive with orbit controls.`;
+Make it interactive with OrbitControls for mouse rotation/zoom AND WASD keyboard controls for first-person movement:
+- W: move camera forward
+- A: move camera left
+- S: move camera backward
+- D: move camera right
+- Q: move camera down
+- E: move camera up
+The WASD movement should translate the camera and orbit target together so the user can walk through the scene.`;
 
 /**
  * Sends the customer's floor plan + style reference to Gemini Flash
@@ -33,7 +40,7 @@ export const generateFloorPlanRender = async (
   const styleMime = styleReferenceBase64.match(/^data:(.*?);base64,/)?.[1] || 'image/jpeg';
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'nano-banana-pro-preview',
     contents: {
       parts: [
         {
@@ -82,7 +89,7 @@ export const generateVoxelScene = async (
   let fullHtml = '';
 
   const response = await ai.models.generateContentStream({
-    model: 'gemini-2.5-pro-preview-05-06',
+    model: 'gemini-3-pro-preview',
     contents: {
       parts: [
         {
