@@ -247,7 +247,7 @@ body {
 
 /* Panel reveal animation */
 .panel__inner.visible {
-  animation: panel-enter 1s var(--ease-out-expo) forwards;
+  animation: panel-enter 0.5s var(--ease-out-expo) forwards;
 }
 
 @keyframes panel-enter {
@@ -270,14 +270,14 @@ body {
 }
 
 .panel__inner.visible .anim-child {
-  animation: child-enter 0.8s var(--ease-out-expo) forwards;
+  animation: child-enter 0.4s var(--ease-out-expo) forwards;
 }
 
-.panel__inner.visible .anim-child:nth-child(1) { animation-delay: 0.15s; }
-.panel__inner.visible .anim-child:nth-child(2) { animation-delay: 0.3s; }
-.panel__inner.visible .anim-child:nth-child(3) { animation-delay: 0.45s; }
-.panel__inner.visible .anim-child:nth-child(4) { animation-delay: 0.6s; }
-.panel__inner.visible .anim-child:nth-child(5) { animation-delay: 0.75s; }
+.panel__inner.visible .anim-child:nth-child(1) { animation-delay: 0s; }
+.panel__inner.visible .anim-child:nth-child(2) { animation-delay: 0.08s; }
+.panel__inner.visible .anim-child:nth-child(3) { animation-delay: 0.16s; }
+.panel__inner.visible .anim-child:nth-child(4) { animation-delay: 0.24s; }
+.panel__inner.visible .anim-child:nth-child(5) { animation-delay: 0.32s; }
 
 @keyframes child-enter {
   from {

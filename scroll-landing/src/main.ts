@@ -251,12 +251,19 @@ const observer = new IntersectionObserver(
     });
   },
   {
-    threshold: 0.12,
-    rootMargin: '0px 0px -5% 0px',
+    threshold: 0.05,
+    rootMargin: '0px 0px 0px 0px',
   }
 );
 
-panelInners.forEach((panel) => observer.observe(panel));
+panelInners.forEach((panel) => {
+  // Show the hero section immediately
+  if (panel.closest('[data-index="0"]')) {
+    panel.classList.add('visible');
+  } else {
+    observer.observe(panel);
+  }
+});
 
 // ---- Handle seeked for fallback mode ----
 video.addEventListener('seeked', () => {
