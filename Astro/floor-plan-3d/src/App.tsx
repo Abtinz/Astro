@@ -75,10 +75,10 @@ const App: React.FC = () => {
     if (isDemo) {
       // Demo mode: fake loading with pre-built render
       const phases = [
-        { text: 'Analyzing floor plan layout...', delay: 1200 },
-        { text: 'Mapping room boundaries...', delay: 1500 },
-        { text: 'Generating photorealistic textures...', delay: 1300 },
-        { text: 'Applying lighting and shadows...', delay: 1000 },
+        { text: 'Analyzing floor plan layout...', delay: 900 },
+        { text: 'Mapping room boundaries...', delay: 1200 },
+        { text: 'Generating photorealistic textures...', delay: 1000 },
+        { text: 'Applying lighting and shadows...', delay: 800 },
       ];
       for (const phase of phases) {
         setThinkingText(phase.text);
@@ -122,34 +122,39 @@ const App: React.FC = () => {
 
     if (isDemo) {
       // Demo mode: fake multi-phase loading with pre-built scene
+      // Start fetching scene in parallel with animation
+      const scenePromise = demoSceneRef.current
+        ? Promise.resolve(demoSceneRef.current)
+        : fetch(`${import.meta.env.BASE_URL || '/'}demo-scene.html`).then(r => r.text());
+
       const demoPhases: { status: AppStatus; texts: { text: string; delay: number }[] }[] = [
         {
           status: 'extracting_walls',
           texts: [
-            { text: 'Detecting wall segments...', delay: 1000 },
-            { text: 'Building coordinate map...', delay: 800 },
+            { text: 'Detecting wall segments...', delay: 700 },
+            { text: 'Building coordinate map...', delay: 600 },
           ],
         },
         {
           status: 'generating_base_scene',
           texts: [
-            { text: 'Constructing floor geometry...', delay: 1000 },
-            { text: 'Extruding wall volumes...', delay: 900 },
+            { text: 'Constructing floor geometry...', delay: 700 },
+            { text: 'Extruding wall volumes...', delay: 600 },
           ],
         },
         {
           status: 'generating_furniture',
           texts: [
-            { text: 'Placing bedroom furniture...', delay: 800 },
-            { text: 'Adding bathroom fixtures...', delay: 700 },
-            { text: 'Arranging kitchen elements...', delay: 700 },
+            { text: 'Placing bedroom furniture...', delay: 600 },
+            { text: 'Adding bathroom fixtures...', delay: 500 },
+            { text: 'Arranging kitchen elements...', delay: 500 },
           ],
         },
         {
           status: 'validating_voxels',
           texts: [
-            { text: 'Checking collision overlaps...', delay: 600 },
-            { text: 'Final scene validation...', delay: 400 },
+            { text: 'Checking collision overlaps...', delay: 400 },
+            { text: 'Final scene validation...', delay: 300 },
           ],
         },
       ];
@@ -163,13 +168,7 @@ const App: React.FC = () => {
         }
       }
 
-      // Load demo scene HTML
-      let sceneHtml = demoSceneRef.current;
-      if (!sceneHtml) {
-        const base = import.meta.env.BASE_URL || '/';
-        const resp = await fetch(`${base}demo-scene.html`);
-        sceneHtml = await resp.text();
-      }
+      const sceneHtml = await scenePromise;
       setVoxelCode(sceneHtml);
       setViewMode('voxel');
       setStatus('idle');
