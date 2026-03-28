@@ -8,6 +8,8 @@ Match the style, perspective, and level of detail shown in the reference image.
 Include realistic furniture, textures, materials, and lighting.
 Maintain the exact room layout, dimensions, and labels from the original floor plan.
 Use an isometric or slightly elevated perspective.
+DOORS ARE MANDATORY: every doorway shown in the floor plan must be clearly represented in the 3D render (visible opening and/or visible door leaf). Do not omit any door.
+STAIR/CEILING CLEARANCE: if stairs exist, keep stair flight natural and buildable. Do not let stairs intersect the ceiling; preserve headroom and align stairs with their opening/void.
 
 The first image is the floor plan to transform.
 The second image is the style reference to match.`;
@@ -20,6 +22,7 @@ CRITICAL REQUIREMENTS — pay close attention to these:
 - WALLS: Every wall must be clearly visible as a solid 3D structure with proper height and thickness. Walls should form complete enclosures for each room. Do not skip any walls — trace every wall boundary from the floor plan precisely.
 - DOORS: Represent each door as a visible opening/gap in the wall with a door frame. Doors must be placed at the exact positions shown in the image. Use a different color or a thin rectangular panel to show the door.
 - STAIRS: If stairs are visible in the image, include them as a series of stacked box steps rising in height. Do NOT omit stairs. IMPORTANT: Each stair step must be at a UNIQUE Y position with NO overlapping faces between steps. Leave a tiny gap (0.05 units) between each step to prevent z-fighting/flashing.
+- STAIR HEADROOM: stairs must not clip into/through ceiling slabs. Keep a visible clearance zone above the steps. If needed, lower the stair run or create a stair void so stairs remain natural and unobstructed.
 - Include all rooms, furniture, and architectural features visible in the image.
 - Each room should be distinguishable by its walls and door placements.
 
