@@ -25,9 +25,6 @@ Thumbs.db
 *.sw?
 *.suo
 
-# Large media (video tracked separately or via LFS)
-*.mp4
-
 # Playwright artifacts
 .playwright-mcp/
 screenshot-*.png
