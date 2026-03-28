@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/app/:path*", "destination": "https://astro-app-umber.vercel.app/:path*" },
+    { "source": "/app", "destination": "https://astro-app-umber.vercel.app" }
+  ]
+}
