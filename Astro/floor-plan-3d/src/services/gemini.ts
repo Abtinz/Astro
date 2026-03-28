@@ -35,7 +35,7 @@ Output a valid JSON object matching this general structure:
     { "name": "Living Room", "bounds": { "x": 0, "z": 0, "width": 10, "depth": 10 } }
   ],
   "walls": [
-    { "x": 0, "z": 0, "width": 10, "height": 3, "depth": 0.2, "orientation": "horizontal" }
+    { "x": 0, "z": 0, "width": 10, "height": 2.5, "depth": 0.2, "orientation": "horizontal" }
   ],
   "doors": [
     { "x": 2, "z": 0, "width": 1, "height": 2.2, "depth": 0.2, "orientation": "horizontal" }
@@ -44,7 +44,8 @@ Output a valid JSON object matching this general structure:
     { "x": 8, "z": 8, "steps": 10, "width": 1.2, "rise": 0.2, "run": 0.3 }
   ]
 }
-Make the coordinates approximate but proportional to the visual layout. Ensure walls enclose all of the individual rooms.`;
+Make the coordinates approximate but proportional to the visual layout. Ensure walls enclose all of the individual rooms.
+IMPORTANT: Wall height must be realistic residential scale (2.4 to 2.6 units). Do NOT make walls taller than 3 units.`;
 
 const BASE_SCENE_PROMPT = `I have provided a 3D rendered floor plan image and a JSON map of its core architectural layout (walls, doors, rooms, stairs).
 Code a beautiful voxel art scene representing ONLY the base architectural shell of this floor plan.
@@ -54,7 +55,7 @@ Write Three.js code as a single-page HTML file.
 
 CRITICAL REQUIREMENTS:
 - Use the provided JSON map as a guide for coordinates, but adjust visually to match the provided image perfectly.
-- WALLS: Every wall must be clearly visible as a solid 3D structure with proper height and thickness.
+- WALLS: Every wall must be clearly visible as a solid 3D structure. Wall height MUST be realistic residential scale: 2.4 to 2.6 units tall (NOT taller). Wall thickness should be 0.2 units.
 - DOORS: Represent each door as a visible opening/gap in the wall.
 - STAIRS: If stairs are present, build them as stacked box steps.
 - FLOOR: Add a distinct floor color or texture to outline the rooms.
@@ -78,7 +79,7 @@ Your task is to carefully review the provided image and code, checking for any m
 Specifically, look for and fix the following issues:
 1. Missing walls, doors or features that are present in the image but not in the code.
 2. Intersecting objects (e.g. stairs clipping through the ceiling or walls).
-3. Incorrect dimensions or proportions.
+3. Incorrect dimensions or proportions — walls should be 2.4–2.6 units tall (residential scale), NOT taller.
 4. Z-fighting or flickering textures (ensure tiny gaps exist between overlapping coplanar faces).
 5. Floating objects or misaligned elements.
 
