@@ -182,7 +182,8 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <header className="app-header">
-        <a href="http://localhost:5173" className="back-home">&larr; Astro Suite</a>
+        {/* UPDATE: Replace with your deployed landing URL */}
+        <a href="https://astro-landing.vercel.app" className="back-home">&larr; Astro Suite</a>
         <h1>3D Floor Plan Visualizer</h1>
         <p className="app-subtitle">Transform your floor plan into an interactive 3D experience</p>
       </header>
