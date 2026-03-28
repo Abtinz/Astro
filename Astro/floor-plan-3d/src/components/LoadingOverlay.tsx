@@ -14,7 +14,11 @@ const PHASE_MAP: Record<string, { label: string; progress: number }> = {
   'Validating and fixing 3D scene...': { label: 'Phase 4 of 4', progress: 85 },
 };
 
-const lottieUrl = `${import.meta.env.BASE_URL || '/'}loading.json`.replace(/\/\//g, '/');
+// In dev: /loading.json works (served from public/)
+// On Vercel via proxy: /app/loading.json goes through the rewrite
+const lottieUrl = import.meta.env.BASE_URL?.startsWith('http')
+  ? `${import.meta.env.BASE_URL.replace(/\/?$/, '/')  }loading.json`
+  : '/loading.json';
 
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status, thinkingText }) => {
   const phase = PHASE_MAP[status];
