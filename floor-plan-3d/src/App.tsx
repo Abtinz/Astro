@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [thinkingText, setThinkingText] = useState<string | null>(null);
   const [deepAgentHealthy, setDeepAgentHealthy] = useState<boolean | null>(null);
   const [deepAgentResult, setDeepAgentResult] = useState<string | null>(null);
+  const [deepAgentRequestId, setDeepAgentRequestId] = useState<string | null>(null);
 
   // Data
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -54,6 +55,7 @@ const App: React.FC = () => {
     setViewMode('upload');
     setErrorMsg('');
     setDeepAgentResult(null);
+    setDeepAgentRequestId(null);
   };
 
   const handleGenerateRender = async () => {
@@ -150,6 +152,7 @@ const App: React.FC = () => {
     setErrorMsg('');
     setThinkingText(null);
     setDeepAgentResult(null);
+    setDeepAgentRequestId(null);
   };
 
   const handleDeepAgentHealth = async () => {
@@ -171,6 +174,7 @@ const App: React.FC = () => {
     setThinkingText(null);
     setErrorMsg('');
     setDeepAgentResult(null);
+    setDeepAgentRequestId(null);
 
     try {
       const result = await runDeepAgent({
@@ -183,6 +187,7 @@ const App: React.FC = () => {
         throw new Error(result.error);
       }
       setDeepAgentResult(result.final_answer || 'Deep agent finished with no final answer text.');
+      setDeepAgentRequestId(result.request_id || null);
       setStatus('idle');
     } catch (err: any) {
       setStatus('error');
@@ -309,6 +314,11 @@ const App: React.FC = () => {
       {deepAgentResult && (
         <div className="deep-agent-output">
           <div className="deep-agent-output-title">Deep Agent Output</div>
+          {deepAgentRequestId && (
+            <div className="deep-agent-output-request-id">
+              Request ID: {deepAgentRequestId}
+            </div>
+          )}
           <pre>{deepAgentResult}</pre>
         </div>
       )}

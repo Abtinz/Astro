@@ -285,6 +285,13 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.deep-agent-output-request-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: #555;
+}
+
 .deep-agent-output pre {
   white-space: pre-wrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

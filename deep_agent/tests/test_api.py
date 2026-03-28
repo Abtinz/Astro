@@ -20,6 +20,19 @@ class ApiTests(unittest.TestCase):
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"ok": True})
+        self.assertTrue(response.headers.get("x-request-id"))
+
+    def test_run_preflight(self) -> None:
+        response = self.client.options(
+            "/run",
+            headers={
+                "Origin": "http://localhost:3004",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "http://localhost:3004")
 
     @patch("deep_agent.api.run_deep_agent")
     def test_run_endpoint(self, mock_run_deep_agent) -> None:
@@ -44,6 +57,7 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(body["approved"])
         self.assertEqual(body["final_answer"], "done")
         self.assertIn("trace", body)
+        self.assertTrue(response.headers.get("x-request-id"))
         mock_run_deep_agent.assert_called_once_with(
             task=payload["task"],
             constraints=payload["constraints"],
