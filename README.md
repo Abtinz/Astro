@@ -115,19 +115,19 @@ Important:
 Install dependencies:
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro/floor-plan-3d && npm install
-cd /Users/abtinzandi/Desktop/Astro/image-to-voxel-art && npm install
+(cd floor-plan-3d && npm install)
+(cd image-to-voxel-art && npm install)
 ```
 
 Run each app in separate terminals:
 
 ```bash
 # Terminal 1
-cd /Users/abtinzandi/Desktop/Astro/floor-plan-3d
+cd floor-plan-3d
 npm run dev
 
 # Terminal 2
-cd /Users/abtinzandi/Desktop/Astro/image-to-voxel-art
+cd image-to-voxel-art
 npm run dev
 ```
 
@@ -156,7 +156,7 @@ Location: `floor-plan-3d/`
 ### Scripts
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro/floor-plan-3d
+cd floor-plan-3d
 npm run dev      # start dev server
 npm run build    # production build
 npm run preview  # preview production build
@@ -182,7 +182,7 @@ Location: `image-to-voxel-art/`
 ### Scripts
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro/image-to-voxel-art
+cd image-to-voxel-art
 npm run dev      # start dev server
 npm run build    # production build
 npm run preview  # preview production build
@@ -200,7 +200,7 @@ npm run preview  # preview production build
 ### Fresh setup from scratch
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro
+cd Astro
 
 # install dependencies
 (cd floor-plan-3d && npm install)
@@ -223,7 +223,7 @@ EOF
 ### Build both apps
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro
+cd Astro
 (cd floor-plan-3d && npm run build)
 (cd image-to-voxel-art && npm run build)
 ```
@@ -231,7 +231,7 @@ cd /Users/abtinzandi/Desktop/Astro
 ### Preview production builds
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro
+cd Astro
 (cd floor-plan-3d && npm run preview)
 (cd image-to-voxel-art && npm run preview)
 ```
@@ -239,7 +239,7 @@ cd /Users/abtinzandi/Desktop/Astro
 ### Optional cleanup
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro
+cd Astro
 rm -rf floor-plan-3d/node_modules floor-plan-3d/dist
 rm -rf image-to-voxel-art/node_modules image-to-voxel-art/dist
 ```
@@ -268,13 +268,8 @@ rm -rf image-to-voxel-art/node_modules image-to-voxel-art/dist
 ### Dependency or lockfile errors
 
 ```bash
-cd /Users/abtinzandi/Desktop/Astro/floor-plan-3d
-rm -rf node_modules package-lock.json
-npm install
-
-cd /Users/abtinzandi/Desktop/Astro/image-to-voxel-art
-rm -rf node_modules package-lock.json
-npm install
+(cd floor-plan-3d && rm -rf node_modules package-lock.json && npm install)
+(cd image-to-voxel-art && rm -rf node_modules package-lock.json && npm install)
 ```
 
 ### Port already in use
