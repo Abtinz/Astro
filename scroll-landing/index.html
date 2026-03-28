@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astro AI Visualizer Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Loading overlay -->
+  <div id="loader">
+    <div class="loader__ring"></div>
+    <p class="loader__text">Loading experience<span class="loader__dots"></span></p>
+  </div>
+
+  <!-- Scroll progress bar -->
+  <div id="progress-bar"></div>
+
+  <!-- Fixed canvas fills viewport -->
+  <canvas id="video-canvas"></canvas>
+
+  <!-- Vignette overlay -->
+  <div id="vignette"></div>
+
+  <!-- Floating particles layer -->
+  <canvas id="particles"></canvas>
+
+  <!-- Hidden video source -->
+  <video id="source-video" src="/astro-demo.mp4" playsinline muted preload="auto" tabindex="0"></video>
+
+  <!-- Scroll content -->
+  <div id="scroll-container">
+
+    <!-- Section 1: Hero -->
+    <section class="panel" data-index="0">
+      <div class="panel__inner panel__inner--hero">
+        <p class="panel__eyebrow anim-child">Introducing</p>
+        <h1 class="panel__title glowing-text anim-child">Astro AI<br/>Visualizer Suite</h1>
+        <p class="panel__sub anim-child">The ultimate pipeline for generating AI-powered 3D visuals.<br/>Scroll to explore the magic.</p>
+        <div class="scroll-indicator anim-child">
+          <div class="scroll-indicator__mouse">
+            <div class="scroll-indicator__dot"></div>
+          </div>
+          <span class="scroll-indicator__label">Scroll to explore</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2 -->
+    <section class="panel" data-index="1">
+      <div class="panel__inner panel__inner--left">
+        <div class="panel__accent-line"></div>
+        <p class="panel__eyebrow anim-child">Step 01</p>
+        <h2 class="panel__title anim-child"><span class="title-reveal">From Blueprint</span><br/><span class="title-reveal">to Reality</span></h2>
+        <p class="panel__sub anim-child">Upload any standard 2D architectural blueprint and let Astro instantly imagine a photorealistic 3D interior render.</p>
+      </div>
+    </section>
+
+    <!-- Section 3 -->
+    <section class="panel" data-index="2">
+      <div class="panel__inner panel__inner--right">
+        <div class="panel__accent-line"></div>
+        <p class="panel__eyebrow anim-child">Step 02</p>
+        <h2 class="panel__title anim-child"><span class="title-reveal">Interactive 3D</span><br/><span class="title-reveal">Voxel Scenes</span></h2>
+        <p class="panel__sub anim-child">We don't just stop at 2D images. Astro converts your interior render directly into a blocky, fully interactive Minecraft-style 3D diorama.</p>
+      </div>
+    </section>
+
+    <!-- Section 4 -->
+    <section class="panel" data-index="3">
+      <div class="panel__inner panel__inner--left">
+        <div class="panel__accent-line"></div>
+        <p class="panel__eyebrow anim-child">Step 03</p>
+        <h2 class="panel__title anim-child"><span class="title-reveal">Any Image.</span><br/><span class="title-reveal">Any Style.</span></h2>
+        <p class="panel__sub anim-child">Feed Astro a painting, a sketch, a photograph&mdash;anything visual. Our AI deconstructs it into depth layers and rebuilds it as a navigable 3D scene.</p>
+      </div>
+    </section>
+
+    <!-- Section 5 -->
+    <section class="panel" data-index="4">
+      <div class="panel__inner panel__inner--right">
+        <div class="panel__accent-line"></div>
+        <p class="panel__eyebrow anim-child">Step 04</p>
+        <h2 class="panel__title anim-child"><span class="title-reveal">&hellip;And Bring it</span><br/><span class="title-reveal">to Life.</span></h2>
+        <p class="panel__sub anim-child">Extrude any 2D image into an explorable, downloadable 3D HTML scene generated entirely by Gemini.</p>
+      </div>
+    </section>
+
+    <!-- Section 6: CTA -->
+    <section class="panel panel--cta" data-index="5">
+      <div class="panel__inner panel__inner--center">
+        <h2 class="panel__title glowing-text anim-child">Ready to Build?</h2>
+        <p class="panel__sub anim-child">Start creating stunning AI-powered 3D visuals today.</p>
+        <a href="http://localhost:3001" class="cta-button anim-child">
+          <span class="cta-button__text">Try Astro Suite Now</span>
+          <span class="cta-button__icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="cta-button__glow"></span>
+        </a>
+      </div>
+    </section>
+
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
