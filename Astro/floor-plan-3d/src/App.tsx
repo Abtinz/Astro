@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Stepper from './components/Stepper';
 import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
@@ -6,9 +6,12 @@ import LoadingOverlay from './components/LoadingOverlay';
 import { generateFloorPlanRender, extractWallJSON, generateBaseScene, generateFurnitureScene, fixVoxelScene } from './services/gemini';
 import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
+import demoRenderUrl from './assets/demo-render.jpg';
 
 type AppStatus = 'idle' | 'generating_render' | 'extracting_walls' | 'generating_base_scene' | 'generating_furniture' | 'validating_voxels' | 'error';
 type ViewMode = 'upload' | 'render' | 'voxel';
+
+const isDemo = new URLSearchParams(window.location.search).has('demo');
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>('idle');
@@ -20,6 +23,7 @@ const App: React.FC = () => {
   const [renderedImage, setRenderedImage] = useState<string | null>(null);
   const [voxelCode, setVoxelCode] = useState<string | null>(null);
   const [styleReference, setStyleReference] = useState<string | null>(null);
+  const demoSceneRef = useRef<string | null>(null);
 
   // View
   const [viewMode, setViewMode] = useState<ViewMode>('upload');
@@ -40,6 +44,15 @@ const App: React.FC = () => {
       }
     };
     loadStyleReference();
+
+    // Pre-load demo scene HTML
+    if (isDemo) {
+      const base = import.meta.env.BASE_URL || '/';
+      fetch(`${base}demo-scene.html`)
+        .then(r => r.text())
+        .then(html => { demoSceneRef.current = html; })
+        .catch(err => console.error('Failed to pre-load demo scene:', err));
+    }
   }, []);
 
   const currentStep: 1 | 2 | 3 = voxelCode ? 3 : renderedImage ? 2 : 1;
@@ -58,6 +71,34 @@ const App: React.FC = () => {
     setStatus('generating_render');
     setErrorMsg('');
     setThinkingText(null);
+
+    if (isDemo) {
+      // Demo mode: fake loading with pre-built render
+      const phases = [
+        { text: 'Analyzing floor plan layout...', delay: 1200 },
+        { text: 'Mapping room boundaries...', delay: 1500 },
+        { text: 'Generating photorealistic textures...', delay: 1300 },
+        { text: 'Applying lighting and shadows...', delay: 1000 },
+      ];
+      for (const phase of phases) {
+        setThinkingText(phase.text);
+        await new Promise(r => setTimeout(r, phase.delay));
+      }
+      // Load the demo render as base64
+      const resp = await fetch(demoRenderUrl);
+      const blob = await resp.blob();
+      const base64 = await new Promise<string>(resolve => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(blob);
+      });
+      setRenderedImage(base64);
+      setVoxelCode(null);
+      setViewMode('render');
+      setStatus('idle');
+      setThinkingText(null);
+      return;
+    }
 
     try {
       const result = await generateFloorPlanRender(uploadedImage, styleReference);
@@ -79,6 +120,63 @@ const App: React.FC = () => {
     setErrorMsg('');
     setThinkingText(null);
 
+    if (isDemo) {
+      // Demo mode: fake multi-phase loading with pre-built scene
+      const demoPhases: { status: AppStatus; texts: { text: string; delay: number }[] }[] = [
+        {
+          status: 'extracting_walls',
+          texts: [
+            { text: 'Detecting wall segments...', delay: 1000 },
+            { text: 'Building coordinate map...', delay: 800 },
+          ],
+        },
+        {
+          status: 'generating_base_scene',
+          texts: [
+            { text: 'Constructing floor geometry...', delay: 1000 },
+            { text: 'Extruding wall volumes...', delay: 900 },
+          ],
+        },
+        {
+          status: 'generating_furniture',
+          texts: [
+            { text: 'Placing bedroom furniture...', delay: 800 },
+            { text: 'Adding bathroom fixtures...', delay: 700 },
+            { text: 'Arranging kitchen elements...', delay: 700 },
+          ],
+        },
+        {
+          status: 'validating_voxels',
+          texts: [
+            { text: 'Checking collision overlaps...', delay: 600 },
+            { text: 'Final scene validation...', delay: 400 },
+          ],
+        },
+      ];
+
+      for (const phase of demoPhases) {
+        setStatus(phase.status);
+        setThinkingText(null);
+        for (const t of phase.texts) {
+          setThinkingText(t.text);
+          await new Promise(r => setTimeout(r, t.delay));
+        }
+      }
+
+      // Load demo scene HTML
+      let sceneHtml = demoSceneRef.current;
+      if (!sceneHtml) {
+        const base = import.meta.env.BASE_URL || '/';
+        const resp = await fetch(`${base}demo-scene.html`);
+        sceneHtml = await resp.text();
+      }
+      setVoxelCode(sceneHtml);
+      setViewMode('voxel');
+      setStatus('idle');
+      setThinkingText(null);
+      return;
+    }
+
     let thoughtBuffer = '';
     const extractHeader = (fragment: string) => {
         thoughtBuffer += fragment;
@@ -93,7 +191,7 @@ const App: React.FC = () => {
     try {
       // Phase 1: Extract JSON
       const wallJson = await extractWallJSON(renderedImage, extractHeader);
-      
+
       // Phase 2: Base Scene
       setStatus('generating_base_scene');
       setThinkingText(null);
@@ -110,7 +208,7 @@ const App: React.FC = () => {
       setStatus('validating_voxels');
       setThinkingText(null);
       thoughtBuffer = '';
-      
+
       const fixedCodeRaw = await fixVoxelScene(renderedImage, furnitureHtml, extractHeader);
 
       const code = fixZFighting(injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(fixedCodeRaw)))));
@@ -186,6 +284,7 @@ const App: React.FC = () => {
         <a href="https://astro.sobhanra.com" className="back-home">&larr; Astro Suite</a>
         <h1>3D Floor Plan Visualizer</h1>
         <p className="app-subtitle">Transform your floor plan into an interactive 3D experience</p>
+        {isDemo && <span className="demo-badge">Demo Mode</span>}
       </header>
 
       <Stepper currentStep={currentStep} />

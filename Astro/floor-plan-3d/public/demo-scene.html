@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Floor Plan - Corrected</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f4f4f9; font-family: sans-serif; }
+        canvas { display: block; }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            pointer-events: none;
+            user-select: none;
+        }
+        h1 { margin: 0 0 10px 0; font-size: 18px; color: #333; }
+        p { margin: 5px 0; font-size: 14px; color: #555; }
+        .key { display: inline-block; background: #ddd; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-family: monospace; }
+    </style>
+    <!-- Import Three.js and OrbitControls -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <style>
+      #info, #loading, #ui, #instructions, .label, .overlay, #description {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+      }
+      body { user-select: none !important; }
+    </style>
+  </head>
+<body>
+    <div id="instructions">
+        <h1>Voxel Floor Plan Navigation</h1>
+        <p>Mouse: <b>Left Click + Drag</b> to Orbit | <b>Scroll</b> to Zoom</p>
+        <p>Keyboard (First-Person):</p>
+        <p><span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> to move horizontally</p>
+        <p><span class="key">Q</span> / <span class="key">E</span> to move down / up</p>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Scene Setup ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf4f4f9);
+        scene.fog = new THREE.Fog(0xf4f4f9, 40, 150);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 36, 44);
+
+        const renderer = new THREE.WebGLRenderer({ logarithmicDepthBuffer: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, 0);
+        controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent going below ground
+
+        // --- Lighting ---
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8d8d99, 0.5);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfff0dd, 1.2);
+        dirLight.position.set(30, 50, 40);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 150;
+        dirLight.shadow.camera.left = -30;
+        dirLight.shadow.camera.right = 30;
+        dirLight.shadow.camera.top = 35;
+        dirLight.shadow.camera.bottom = -35;
+        dirLight.shadow.bias = -0.001;
+        scene.add(dirLight);
+
+        // --- Materials ---
+        const colors = {
+            wall: 0xefebd8,
+            door: 0x6e5239,
+            floorCarpet: 0xcec8bc,
+            floorTile: 0xc4c7cc,
+            floorWood: 0xa88866,
+            stair: 0x8c7861,
+            furniture: 0xffffff,
+            accent: 0x7a96a3,
+            woodDark: 0x5a4836,
+            glass: 0xaaddff
+        };
+
+        const mats = {
+            wall: new THREE.MeshStandardMaterial({ color: colors.wall, roughness: 0.85 }),
+            door: new THREE.MeshStandardMaterial({ color: colors.door, roughness: 0.7 }),
+            carpet: new THREE.MeshStandardMaterial({ color: colors.floorCarpet, roughness: 1.0 }),
+            tile: new THREE.MeshStandardMaterial({ color: colors.floorTile, roughness: 0.2, metalness: 0.1 }),
+            wood: new THREE.MeshStandardMaterial({ color: colors.floorWood, roughness: 0.6 }),
+            stair: new THREE.MeshStandardMaterial({ color: colors.stair, roughness: 0.8 }),
+            furniture: new THREE.MeshStandardMaterial({ color: colors.furniture, roughness: 0.4 }),
+            accent: new THREE.MeshStandardMaterial({ color: colors.accent, roughness: 0.8 }),
+            woodDark: new THREE.MeshStandardMaterial({ color: colors.woodDark, roughness: 0.5 }),
+            glass: new THREE.MeshPhysicalMaterial({ color: colors.glass, transparent: true, opacity: 0.35, roughness: 0.05, transmission: 0.5 })
+        };
+
+        // --- Helper Functions ---
+        function addBox(x, y, z, w, h, d, material, castShadow = true) {
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mesh = new THREE.Mesh(geo, material);
+            mesh.position.set(x, y, z);
+            mesh.castShadow = castShadow;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+            return mesh;
+        }
+
+        function createFloor(x, z, w, d, material) {
+            // Y is offset so top surface is exactly at Y=0
+            addBox(x, -0.25, z, w, 0.5, d, material);
+        }
+
+        function createWall(x1, z1, x2, z2, height = 4.5, thickness = 0.5) {
+            const w = Math.abs(x2 - x1) || thickness;
+            const d = Math.abs(z2 - z1) || thickness;
+            const x = (x1 + x2) / 2;
+            const z = (z1 + z2) / 2;
+            const y = height / 2;
+            addBox(x, y, z, w, height, d, mats.wall);
+        }
+
+        function createDoorway(x, z, w, d, isHorizontal) {
+            const headerY = 3.75;
+            const headerH = 1.5;
+            const doorThickness = 0.15;
+            if (isHorizontal) {
+                // Header
+                addBox(x, headerY, z, w, headerH, 0.5, mats.wall);
+                // Half-open door panel
+                addBox(x - w/4 + 0.1, 1.5, z + w/4, w/2, 3.0, doorThickness, mats.door).rotation.y = Math.PI/4;
+            } else {
+                addBox(x, headerY, z, 0.5, headerH, d, mats.wall);
+                addBox(x + d/4, 1.5, z - d/4 + 0.1, doorThickness, 3.0, d/2, mats.door).rotation.y = Math.PI/4;
+            }
+        }
+
+        function addWindow(x, y, z, w, h, d) {
+            // Glass pane, slightly thicker than wall to prevent z-fighting
+            addBox(x, y, z, w, h, d, mats.glass, false);
+            // Simple top/bottom frames
+            addBox(x, y + h/2 - 0.05, z, w + (w>d?0:0.2), 0.1, d + (w>d?0.2:0), mats.woodDark);
+            addBox(x, y - h/2 + 0.05, z, w + (w>d?0:0.2), 0.1, d + (w>d?0.2:0), mats.woodDark);
+        }
+
+        // --- Build Floor Plan ---
+        
+        // 1. Floor Slabs (Perfectly tiled, no overlaps)
+        createFloor(6, -16, 16, 12, mats.carpet);   // Principal Bed
+        createFloor(-8, -18, 12, 8, mats.tile);     // Ensuite 1
+        createFloor(-11, -12, 6, 4, mats.wood);     // WIC 1
+        createFloor(-5, -12, 6, 4, mats.wood);      // WIC 2
+        createFloor(-8, -5, 12, 10, mats.carpet);   // Bed 3 (Mid)
+        createFloor(-8, 3, 12, 6, mats.tile);       // Shared Ensuite
+        createFloor(-8, 14, 12, 16, mats.carpet);   // Bed 4 (Bottom Left)
+        createFloor(0, 1, 4, 22, mats.wood);        // Main Hallway
+        createFloor(8, -7, 12, 6, mats.tile);       // Laundry
+        createFloor(11, 0, 6, 8, mats.wood);        // Landing / Transom Area
+        createFloor(5, 7, 6, 6, mats.tile);         // Ensuite 2
+        createFloor(11, 7, 6, 6, mats.wood);        // WIC Bed 2
+        createFloor(8, 16, 12, 12, mats.carpet);    // Bed 2 (Bottom Right)
+        createFloor(0, 17, 4, 10, mats.wood);       // Sloped Closet
+        // (Stair void at X:2 to 8, Z:-4 to 4 remains open)
+
+        // 2. Exterior Walls & Windows
+        createWall(-14, -22, 14, -22); // North
+        addWindow(-8, 2.5, -22, 3, 2.5, 0.7); // Ensuite Window
+        addWindow(8, 2.5, -22, 5, 2.5, 0.7);  // Principal Bed Window
+
+        createWall(-14, 22, 14, 22);   // South
+        addWindow(-8, 2.5, 22, 4, 2.5, 0.7);  // Bed 4 South Window
+        addWindow(8, 2.5, 22, 4, 2.5, 0.7);   // Bed 2 South Window
+
+        createWall(-14, -22, -14, 22); // West
+        addWindow(-14, 2.5, -5, 0.7, 2.5, 4); // Bed 3 West Window
+        addWindow(-14, 2.5, 12, 0.7, 2.5, 4); // Bed 4 West Window
+
+        createWall(14, -22, 14, 22);   // East
+        addWindow(14, 3.0, 0, 0.7, 1.5, 6);   // Transom Window
+        addWindow(14, 2.5, 16, 0.7, 2.5, 4);  // Bed 2 East Window
+
+        // 3. Interior Walls
+        
+        // Z-aligned dividers
+        createWall(-14, -14, -2, -14); // Ensuite / WICs
+        createWall(-14, -10, -2, -10); // WICs / Bed 3
+        createDoorway(0, -10, 4, 0.5, true); // Principal Suite Double Doors
+        createWall(2, -10, 14, -10);   // Suite / Laundry
+        createWall(5, -7, 5, -10);     // Linen closet right wall
+        createWall(2, -7, 5, -7);      // Linen closet bottom wall
+        createWall(5, -4, 14, -4);     // Laundry bottom wall
+        createWall(-14, 0, -13.5, 0);  // Bed 3 / Shared Ens (left stub)
+        createDoorway(-12, 0, 3, 0.5, true); // Bed 3 Jack&Jill
+        createWall(-10.5, 0, -2, 0);   // Bed 3 / Shared Ens (main)
+        createWall(2, 4, 14, 4);       // Ensuite 2 & WIC / Stairs
+        createWall(-14, 6, -13.5, 6);  // Shared Ens / Bed 4 (left stub)
+        createDoorway(-12, 6, 3, 0.5, true); // Bed 4 Jack&Jill
+        createWall(-10.5, 6, -2, 6);   // Shared Ens / Bed 4 (main)
+        createWall(2, 10, 3.5, 10);    // Bed 2 / Ensuite 2
+        createDoorway(5, 10, 3, 0.5, true); // Ensuite 2 Door
+        createWall(6.5, 10, 9.5, 10);  // Bed 2 / WIC 2
+        createDoorway(11, 10, 3, 0.5, true); // WIC Bed 2 Door
+        createWall(12.5, 10, 14, 10);  // Bed 2 / WIC 2 (end)
+        createWall(-2, 12, 2, 12);     // Hallway end / Sloped closet start
+
+        // X-aligned dividers
+        createWall(-8, -14, -8, -13.5); // WIC 1/2 split
+        createDoorway(-8, -12, 0.5, 3, false); // WIC 1 Door
+        createWall(-8, -10.5, -8, -10); // WIC 1/2 split
+
+        // Left Hallway Spine (X=-2)
+        createWall(-2, -22, -2, -18.5);
+        createDoorway(-2, -17, 0.5, 3, false); // Ensuite 1 Door
+        createWall(-2, -15.5, -2, -13);
+        createDoorway(-2, -11.5, 0.5, 3, false); // WIC 2 Door
+        createWall(-2, -10, -2, -9);
+        createDoorway(-2, -7.5, 0.5, 3, false); // Bed 3 Mid Door
+        createWall(-2, -6, -2, 7); // Shared Ensuite solid hall wall
+        createDoorway(-2, 8.5, 0.5, 3, false); // Bed 4 Door
+        createWall(-2, 10, -2, 12.5);
+        createDoorway(-2, 14, 0.5, 3, false); // Sloped Closet Door
+        createWall(-2, 15.5, -2, 22);
+
+        // Right Hallway Spine (X=2)
+        createWall(2, -10, 2, -9.5);
+        createDoorway(2, -8.5, 0.5, 2, false); // Linen Closet Door
+        createWall(2, -7.5, 2, -7);
+        createDoorway(2, -5.5, 0.5, 3, false); // Laundry Main Door
+        createWall(2, -4, 2, 4, 1.2); // Stair Railing Left (Low Wall)
+        createWall(2, 4, 2, 9); // Ensuite 2 Left Wall
+        createDoorway(2, 10.5, 0.5, 3, false); // Bed 2 Door
+        createWall(2, 12, 2, 22);
+
+        // Right Landing Spine (X=8)
+        createWall(8, -4, 8, 4, 1.2); // Stair Railing Right (Low Wall)
+        createWall(8, 4, 8, 10); // Ensuite 2 / WIC Bed 2 split
+
+        // 4. Build Stairs
+        const numSteps = 16;
+        const stepWidth = 5.8;
+        const stepDepth = 0.48; // Tiny gap to prevent z-fighting
+        const stepHeight = 0.25; 
+        const stairXCenter = 5;
+
+        for (let i = 0; i < numSteps; i++) {
+            let stepY = -0.125 - (i * stepHeight); 
+            let stepZ = 3.7 - (i * 0.5); 
+            addBox(stairXCenter, stepY, stepZ, stepWidth, stepHeight, stepDepth, mats.stair);
+        }
+
+        // 5. Furniture & Details (Voxel Art)
+
+        function addBed(x, z, rotationY = 0) {
+            const group = new THREE.Group();
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.5, 6.4), mats.woodDark);
+            frame.position.set(0, 0.25, 0);
+            frame.castShadow = true;
+            group.add(frame);
+            const mattress = new THREE.Mesh(new THREE.BoxGeometry(4, 0.4, 6), mats.furniture);
+            mattress.position.set(0, 0.7, 0);
+            mattress.castShadow = true;
+            group.add(mattress);
+            const blanket = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.45, 4), mats.accent);
+            blanket.position.set(0, 0.72, 1);
+            blanket.castShadow = true;
+            group.add(blanket);
+            const p1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.25, 1.2), mats.furniture);
+            p1.position.set(-1, 0.95, -2);
+            group.add(p1);
+            const p2 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.25, 1.2), mats.furniture);
+            p2.position.set(1, 0.95, -2);
+            group.add(p2);
+            group.position.set(x, 0, z);
+            group.rotation.y = rotationY;
+            scene.add(group);
+        }
+
+        function addTub(x, z, rot=0) {
+            const tub = addBox(x, 0.6, z, 2.5, 1.2, 4.5, mats.furniture);
+            tub.rotation.y = rot;
+            // Inner carve
+            addBox(x, 0.8, z, 2.1, 1.0, 4.1, mats.wall).material = new THREE.MeshStandardMaterial({color: 0xdddddd});
+        }
+
+        function addVanity(x, z, w, d, rot=0) {
+            const grp = new THREE.Group();
+            grp.add(new THREE.Mesh(new THREE.BoxGeometry(w, 2.8, d), mats.woodDark).translateY(1.4));
+            grp.add(new THREE.Mesh(new THREE.BoxGeometry(w+0.1, 0.2, d+0.1), mats.furniture).translateY(2.9));
+            grp.position.set(x, 0, z);
+            grp.rotation.y = rot;
+            scene.add(grp);
+        }
+
+        function addToilet(x, z) {
+            addBox(x, 0.8, z, 1.2, 1.6, 1.8, mats.furniture);
+            addBox(x, 1.8, z - 0.5, 1.4, 1.0, 0.8, mats.furniture);
+        }
+
+        function addGlassShower(x, z, w, d) {
+            addBox(x, 0.1, z, w, 0.2, d, mats.tile); // Base pan
+            addBox(x+w/2-0.05, 2.0, z, 0.1, 4, d, mats.glass, false); // Right glass
+            addBox(x, 2.0, z+d/2-0.05, w, 4, 0.1, mats.glass, false); // Front glass
+        }
+
+        function addWardrobe(x, z, w, d, rot=0) {
+            const m = addBox(x, 2.5, z, w, 5, d, mats.woodDark);
+            m.rotation.y = rot;
+        }
+
+        // --- Placement ---
+
+        // Principal Bedroom
+        addBed(8, -18, -Math.PI / 2); 
+        addBox(3, 1.5, -13, 4, 3, 1.5, mats.woodDark); // Dresser
+        
+        // Ensuite 1
+        addTub(-5, -19, Math.PI / 2); 
+        addGlassShower(-12, -20, 3, 3);
+        addVanity(-7, -14.6, 5, 1.5);
+        addToilet(-12, -15);
+
+        // WICs
+        addBox(-11, 2.5, -13.6, 5, 0.1, 0.5, mats.wood); // Racks
+        addBox(-5, 2.5, -13.6, 5, 0.1, 0.5, mats.wood);
+
+        // Bedroom 3 (Mid)
+        addBed(-11, -5, Math.PI / 2);
+        addBox(-3, 1.5, -5, 1.5, 3, 3, mats.woodDark); // Desk
+        addWardrobe(-9, -9.5, 4, 1); // Wardrobe
+
+        // Shared Ensuite
+        addTub(-12, 3, 0);
+        addToilet(-8, 2);
+        addVanity(-3.5, 3, 1.5, 4);
+
+        // Bedroom 4 (Bottom)
+        addBed(-11, 16, Math.PI / 2);
+        addBox(-3, 1.5, 18, 1.5, 3, 3, mats.woodDark); // Desk
+
+        // Sloped Closet
+        addBox(0, 2.5, 16, 2, 0.1, 5, mats.wood); // Shelving
+
+        // Laundry
+        addBox(12, 1.6, -5.5, 1.8, 3.2, 2.2, mats.furniture); // Washer
+        addBox(10, 1.6, -5.5, 1.8, 3.2, 2.2, mats.furniture); // Dryer
+        addVanity(8, -9.4, 3, 1.5); // Sink
+        addBox(10, -0.24, -7, 0.6, 0.51, 0.6, new THREE.MeshStandardMaterial({color: 0x333333})); // Drain
+
+        // Bedroom 2
+        addBed(11, 16, -Math.PI / 2);
+        addBox(3, 1.5, 16, 1.5, 3, 4, mats.woodDark); // Dresser
+
+        // Ensuite 2
+        addTub(3.5, 7, 0);
+        addToilet(6.5, 6);
+        addVanity(5, 9.4, 3, 1.2);
+
+        // WIC Bed 2
+        addBox(11, 2.5, 5, 4, 0.1, 0.5, mats.wood); // Rack
+
+        // --- First-Person Controls ---
+        const keys = { w: false, a: false, s: false, d: false, q: false, e: false };
+        const moveSpeed = 0.3;
+
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (keys.hasOwnProperty(k)) keys[k] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (keys.hasOwnProperty(k)) keys[k] = false;
+        });
+
+        // --- Render Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (keys.w || keys.s || keys.a || keys.d || keys.q || keys.e) {
+                const forward = new THREE.Vector3();
+                camera.getWorldDirection(forward);
+                forward.y = 0;
+                forward.normalize();
+
+                const right = new THREE.Vector3();
+                right.crossVectors(camera.up, forward).normalize();
+
+                const moveVec = new THREE.Vector3(0, 0, 0);
+
+                if (keys.w) moveVec.addScaledVector(forward, moveSpeed);
+                if (keys.s) moveVec.addScaledVector(forward, -moveSpeed);
+                if (keys.a) moveVec.addScaledVector(right, -moveSpeed); 
+                if (keys.d) moveVec.addScaledVector(right, moveSpeed);
+                if (keys.q) moveVec.y -= moveSpeed;
+                if (keys.e) moveVec.y += moveSpeed;
+
+                camera.position.add(moveVec);
+                controls.target.add(moveVec);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+
+    <script>
+    (function() {
+      const keys = Object.create(null);
+      const SPEED = 0.18;
+      const UP_KEYS = ['arrowup', 'w'];
+      const DOWN_KEYS = ['arrowdown', 's'];
+      const LEFT_KEYS = ['arrowleft', 'a'];
+      const RIGHT_KEYS = ['arrowright', 'd'];
+
+      function markKey(e, down) {
+        const k = (e.key || '').toLowerCase();
+        keys[k] = down;
+      }
+
+      window.addEventListener('keydown', function(e) { markKey(e, true); }, { passive: true });
+      window.addEventListener('keyup', function(e) { markKey(e, false); }, { passive: true });
+      window.addEventListener('blur', function() {
+        for (const k in keys) delete keys[k];
+      });
+
+      function hasAny(arr) {
+        for (let i = 0; i < arr.length; i++) {
+          if (keys[arr[i]]) return true;
+        }
+        return false;
+      }
+
+      function resolveCamera(T) {
+        if (window._camera && window._camera.isCamera) return window._camera;
+        if (window.camera && window.camera.isCamera) return window.camera;
+        for (const k of Object.keys(window)) {
+          const v = window[k];
+          if (v && v.isCamera) return v;
+        }
+        return null;
+      }
+
+      let cachedControls = undefined;
+      function resolveControls() {
+        if (cachedControls !== undefined) return cachedControls;
+        if (window._controls && window._controls.target) { cachedControls = window._controls; return cachedControls; }
+        if (window.controls && window.controls.target) { cachedControls = window.controls; return cachedControls; }
+        try {
+          for (const k of Object.keys(window)) {
+            const v = window[k];
+            if (v && v.target && v.update && typeof v.update === 'function') {
+              cachedControls = v; return v;
+            }
+          }
+        } catch(e) {}
+        cachedControls = null;
+        return null;
+      }
+
+      function ensureFocusTarget() {
+        if (!document.body) return;
+        if (document.body.tabIndex < 0) document.body.tabIndex = 0;
+        window.addEventListener('pointerdown', function() {
+          try { window.focus(); } catch (_e) {}
+          try { document.body.focus(); } catch (_e) {}
+        });
+      }
+
+      function tryAttach() {
+        const T = window.THREE;
+        if (!T || !T.Vector3) { setTimeout(tryAttach, 400); return; }
+
+        const cam = resolveCamera(T);
+        if (!cam) { setTimeout(tryAttach, 400); return; }
+
+        const controls = resolveControls();
+        window._camera = cam;
+        if (controls) window._controls = controls;
+
+        const dir = new T.Vector3();
+        const right = new T.Vector3();
+        const move = new T.Vector3();
+        let last = performance.now();
+
+        function tick(now) {
+          requestAnimationFrame(tick);
+
+          const dt = Math.min((now - last) / 16.67, 3);
+          last = now;
+
+          move.set(0, 0, 0);
+          cam.getWorldDirection(dir);
+          dir.y = 0;
+          if (dir.lengthSq() > 0) dir.normalize();
+          right.crossVectors(dir, cam.up).normalize();
+
+          if (hasAny(UP_KEYS)) move.add(dir);
+          if (hasAny(DOWN_KEYS)) move.addScaledVector(dir, -1);
+          if (hasAny(LEFT_KEYS)) move.addScaledVector(right, -1);
+          if (hasAny(RIGHT_KEYS)) move.add(right);
+          if (keys['e']) move.y += 1;
+          if (keys['q']) move.y -= 1;
+
+          if (move.lengthSq() > 0) {
+            move.normalize().multiplyScalar(SPEED * dt);
+            cam.position.add(move);
+            const activeControls = resolveControls();
+            if (activeControls && activeControls.target) {
+              activeControls.target.add(move);
+              if (typeof activeControls.update === 'function') activeControls.update();
+            }
+          }
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      ensureFocusTarget();
+      setTimeout(tryAttach, 900);
+    })();
+    </script>
+  
+    <script>
+    (function() {
+      function buildCity() {
+        const T = window.THREE;
+        if (!T) { setTimeout(buildCity, 500); return; }
+
+        // Find the scene
+        let sc = window.scene;
+        if (!sc) {
+          // Try to find scene from renderer
+          const canvases = document.querySelectorAll('canvas');
+          if (!canvases.length) { setTimeout(buildCity, 500); return; }
+          // Fallback: traverse window properties
+          for (const k of Object.keys(window)) {
+            if (window[k] instanceof T.Scene) { sc = window[k]; break; }
+          }
+        }
+        if (!sc) { setTimeout(buildCity, 500); return; }
+
+        const cityGroup = new T.Group();
+        cityGroup.name = 'city_environment';
+
+        // Enable logarithmic depth buffer on renderer if possible
+        const renderer = window.renderer;
+        if (renderer) { renderer.logarithmicDepthBuffer = true; }
+
+        // Find the voxel scene's floor color to match
+        let floorColor = 0x3a3a3a;
+        sc.traverse(function(child) {
+          if (child.isMesh && child.geometry) {
+            var params = child.geometry.parameters;
+            // Look for a large flat mesh (floor plane or box)
+            if (params) {
+              var isWideFlat = (params.width > 20 && params.depth > 20 && (!params.height || params.height < 2))
+                || (params.width > 20 && params.height > 20 && params.depth < 2);
+              if (isWideFlat && child.material && child.material.color) {
+                floorColor = child.material.color.getHex();
+              }
+            }
+          }
+        });
+
+        // Ground plane — use a solid box to avoid z-fighting, matching voxel floor color
+        const groundMat = new T.MeshLambertMaterial({ color: floorColor });
+        const ground = new T.Mesh(
+          new T.BoxGeometry(600, 1, 600),
+          groundMat
+        );
+        ground.position.y = -1;
+        ground.receiveShadow = true;
+        cityGroup.add(ground);
+
+        // Road — raised box, no coplanar planes
+        const road = new T.Mesh(
+          new T.BoxGeometry(120, 0.2, 120),
+          new T.MeshLambertMaterial({ color: 0x555555 })
+        );
+        road.position.y = -0.4;
+        cityGroup.add(road);
+
+        // Road markings — thin boxes raised above road
+        const dashMat = new T.MeshLambertMaterial({ color: 0xdddd44 });
+        for (let i = -55; i <= 55; i += 6) {
+          const dash = new T.Mesh(new T.BoxGeometry(2, 0.1, 0.3), dashMat);
+          dash.position.set(i, -0.2, -45);
+          cityGroup.add(dash);
+          const dash2 = new T.Mesh(new T.BoxGeometry(0.3, 0.1, 2), dashMat);
+          dash2.position.set(-45, -0.2, i);
+          cityGroup.add(dash2);
+        }
+
+        // Sidewalk — solid boxes clearly above road
+        const sidewalkMat = new T.MeshLambertMaterial({ color: 0x999999 });
+        const swPositions = [
+          { x: 0, z: -52, sx: 110, sz: 4 },
+          { x: 0, z: 52, sx: 110, sz: 4 },
+          { x: -52, z: 0, sx: 4, sz: 110 },
+          { x: 52, z: 0, sx: 4, sz: 110 },
+        ];
+        swPositions.forEach(p => {
+          const sw = new T.Mesh(new T.BoxGeometry(p.sx, 0.4, p.sz), sidewalkMat);
+          sw.position.set(p.x, -0.3, p.z);
+          cityGroup.add(sw);
+        });
+
+        // Building colors
+        const bColors = [0x8899aa, 0x7788aa, 0x667799, 0x99aabb, 0x6677888, 0xaabbcc, 0x556677, 0x778899];
+        const windowColor = 0xffffcc;
+
+        // Seeded random for consistency
+        let seed = 42;
+        function rand() { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; }
+
+        // Generate city blocks on all four sides
+        const zones = [
+          { xMin: -280, xMax: -60, zMin: -280, zMax: -60 },
+          { xMin: 60, xMax: 280, zMin: -280, zMax: -60 },
+          { xMin: -280, xMax: -60, zMin: 60, zMax: 280 },
+          { xMin: 60, xMax: 280, zMin: 60, zMax: 280 },
+          { xMin: -280, xMax: -60, zMin: -50, zMax: 50 },
+          { xMin: 60, xMax: 280, zMin: -50, zMax: 50 },
+          { xMin: -50, xMax: 50, zMin: -280, zMax: -60 },
+          { xMin: -50, xMax: 50, zMin: 60, zMax: 280 },
+        ];
+
+        zones.forEach(zone => {
+          let x = zone.xMin;
+          while (x < zone.xMax) {
+            let z = zone.zMin;
+            while (z < zone.zMax) {
+              const w = 8 + rand() * 15;
+              const d = 8 + rand() * 15;
+              const h = 10 + rand() * 50;
+              const color = bColors[Math.floor(rand() * bColors.length)];
+
+              const bGeo = new T.BoxGeometry(w, h, d);
+              const bMat = new T.MeshLambertMaterial({ color });
+              const building = new T.Mesh(bGeo, bMat);
+              building.position.set(x + w/2, h/2 - 0.5, z + d/2);
+              building.castShadow = true;
+              building.receiveShadow = true;
+              cityGroup.add(building);
+
+              // Windows
+              const wMat = new T.MeshBasicMaterial({ color: rand() > 0.3 ? windowColor : 0x334455 });
+              const floors = Math.floor(h / 4);
+              for (let f = 0; f < floors; f++) {
+                const wy = 2 + f * 4 + h/2 - h - 0.5 + h;
+                // Front and back windows
+                for (let wx = -w/2 + 2; wx < w/2 - 1; wx += 3) {
+                  if (rand() > 0.4) {
+                    const win = new T.Mesh(new T.PlaneGeometry(1.5, 2), wMat);
+                    win.position.set(x + w/2 + wx, wy - h/2, z);
+                    cityGroup.add(win);
+                  }
+                }
+              }
+
+              z += d + 3 + rand() * 8;
+            }
+            x += 25 + rand() * 10;
+          }
+        });
+
+        // Trees along sidewalks
+        const treeTrunkMat = new T.MeshLambertMaterial({ color: 0x8B4513 });
+        const treeLeafMat = new T.MeshLambertMaterial({ color: 0x228B22 });
+        for (let i = -50; i <= 50; i += 12) {
+          [{ x: i, z: -56 }, { x: i, z: 56 }, { x: -56, z: i }, { x: 56, z: i }].forEach(p => {
+            const trunk = new T.Mesh(new T.CylinderGeometry(0.3, 0.4, 3), treeTrunkMat);
+            trunk.position.set(p.x, 1, p.z);
+            cityGroup.add(trunk);
+            const leaves = new T.Mesh(new T.SphereGeometry(2, 6, 6), treeLeafMat);
+            leaves.position.set(p.x, 3.5, p.z);
+            cityGroup.add(leaves);
+          });
+        }
+
+        // Sky gradient
+        if (sc.background === null || sc.background === undefined) {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1; canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const grad = ctx.createLinearGradient(0, 0, 0, 256);
+            grad.addColorStop(0, '#1a2a4a');
+            grad.addColorStop(0.4, '#4a7ab5');
+            grad.addColorStop(0.7, '#87CEEB');
+            grad.addColorStop(1.0, '#b8d4e8');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 1, 256);
+            const tex = new T.CanvasTexture(canvas);
+            tex.mapping = T.EquirectangularReflectionMapping;
+            sc.background = tex;
+          }
+        }
+
+        // Add ambient light if scene is dark
+        var ambientExists = false;
+        sc.children.forEach(function(c) { if (c.isAmbientLight) ambientExists = true; });
+        if (!ambientExists) {
+          sc.add(new T.AmbientLight(0xffffff, 0.4));
+        }
+
+        // Sun directional light
+        const sun = new T.DirectionalLight(0xfff5e6, 0.6);
+        sun.position.set(100, 150, 80);
+        sun.castShadow = true;
+        cityGroup.add(sun);
+
+        sc.add(cityGroup);
+      }
+
+      setTimeout(buildCity, 1500);
+    })();
+    </script>
+  
+    <script>
+    (function() {
+      function patchScene() {
+        var T = window.THREE;
+        if (!T) { setTimeout(patchScene, 500); return; }
+
+        var sc = window.scene;
+        if (!sc) {
+          var keys = Object.keys(window);
+          for (var i = 0; i < keys.length; i++) {
+            if (window[keys[i]] instanceof T.Scene) { sc = window[keys[i]]; break; }
+          }
+        }
+        if (!sc) { setTimeout(patchScene, 500); return; }
+
+        // Adjust camera near/far for better depth precision
+        var cam = window.camera || window._camera;
+        if (cam) {
+          cam.near = 0.5;
+          cam.far = 5000;
+          cam.updateProjectionMatrix();
+        }
+
+        // Separate overlapping stair meshes by adding tiny Y offsets.
+        // Keep offsets bounded to avoid pushing steps into ceilings.
+        var stairIndex = 0;
+        sc.traverse(function(child) {
+          if (child.isMesh && child.geometry) {
+            var params = child.geometry.parameters;
+            // Detect stair-like meshes: small boxes stacked vertically
+            if (params && params.width && params.height && params.depth) {
+              var hasStairName = typeof child.name === 'string' && /stair|step/i.test(child.name);
+              var looksLikeStep = (
+                params.width <= 8 &&
+                params.depth <= 8 &&
+                params.height > 0.05 &&
+                params.height <= 1.5
+              );
+              if (hasStairName || looksLikeStep) {
+                // Bounded micro-offsets to prevent z-fighting without large drift.
+                child.position.y += (stairIndex % 6) * 0.002;
+                stairIndex++;
+              }
+            }
+            // Apply polygon offset to all materials
+            if (child.material) {
+              var mats = Array.isArray(child.material) ? child.material : [child.material];
+              for (var m = 0; m < mats.length; m++) {
+                mats[m].polygonOffset = true;
+                mats[m].polygonOffsetFactor = 1;
+                mats[m].polygonOffsetUnits = 1;
+                mats[m].needsUpdate = true;
+              }
+            }
+          }
+        });
+
+        // Keep stairs below lowest detected ceiling slab to avoid clipping.
+        var lowestCeilingBottom = Infinity;
+        var stairMeshes = [];
+        sc.traverse(function(child) {
+          if (!(child && child.isMesh && child.geometry && child.geometry.parameters)) return;
+          var p = child.geometry.parameters;
+          if (!(p.width && p.height && p.depth)) return;
+
+          var isCeilingLike = (
+            p.height <= 0.8 &&
+            p.width >= 6 &&
+            p.depth >= 6 &&
+            child.position &&
+            child.position.y > 1
+          );
+          if (isCeilingLike) {
+            var bottom = child.position.y - p.height / 2;
+            if (bottom < lowestCeilingBottom) lowestCeilingBottom = bottom;
+          }
+
+          var hasStairName = typeof child.name === 'string' && /stair|step/i.test(child.name);
+          var looksLikeStep = (
+            p.width <= 8 &&
+            p.depth <= 8 &&
+            p.height > 0.05 &&
+            p.height <= 1.5
+          );
+          if (hasStairName || looksLikeStep) {
+            stairMeshes.push(child);
+          }
+        });
+
+        if (stairMeshes.length > 0 && lowestCeilingBottom < Infinity) {
+          var stairTop = -Infinity;
+          for (var s = 0; s < stairMeshes.length; s++) {
+            var sp = stairMeshes[s].geometry.parameters;
+            var top = stairMeshes[s].position.y + sp.height / 2;
+            if (top > stairTop) stairTop = top;
+          }
+
+          var desiredTop = lowestCeilingBottom - 0.6;
+          if (stairTop > desiredTop) {
+            var pushDown = stairTop - desiredTop;
+            for (var j = 0; j < stairMeshes.length; j++) {
+              stairMeshes[j].position.y -= pushDown;
+            }
+          }
+        }
+      }
+
+      setTimeout(patchScene, 2000);
+    })();
+    </script>
+  </body>
+</html>

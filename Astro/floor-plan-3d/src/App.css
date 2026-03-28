@@ -161,6 +161,20 @@ body::after {
   letter-spacing: 0.02em;
 }
 
+.demo-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: rgba(212, 168, 83, 0.08);
+}
+
 /* ---- Stepper ---- */
 
 .stepper {

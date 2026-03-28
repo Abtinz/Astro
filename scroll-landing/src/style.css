@@ -540,6 +540,17 @@ body {
   transform: translateX(5px);
 }
 
+.cta-button--demo {
+  background: transparent;
+  border: 1.5px solid var(--gold);
+  color: var(--gold);
+  margin-top: 0.75rem;
+}
+
+.cta-button--demo:hover {
+  background: rgba(212, 168, 83, 0.1);
+}
+
 /* ---- Film Grain Overlay ---- */
 
 body::after {
