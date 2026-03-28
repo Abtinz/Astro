@@ -4,7 +4,7 @@ import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
 import { generateFloorPlanRenderAgentic, generateVoxelSceneAgentic } from './services/gemini';
-import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
+import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting, exposeThreeGlobals, ensureOrbitControlsFallback, hardenOrbitControlsUsage, fixKnownTDZPatterns, injectSceneErrorOverlay } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
 type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'error';
@@ -96,7 +96,25 @@ const App: React.FC = () => {
         }
       );
 
-      const code = fixZFighting(injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(fixedCodeRaw)))));
+      const code = fixZFighting(
+        injectCityEnvironment(
+          injectWASDControls(
+            zoomCamera(
+              hideBodyText(
+                injectSceneErrorOverlay(
+                  ensureOrbitControlsFallback(
+                    hardenOrbitControlsUsage(
+                      fixKnownTDZPatterns(
+                        exposeThreeGlobals(fixedCodeRaw)
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      );
       setVoxelCode(code);
       setViewMode('voxel');
       setStatus('idle');

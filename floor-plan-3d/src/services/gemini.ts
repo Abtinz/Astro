@@ -18,6 +18,15 @@ The second image is the style reference to match.`;
 const VOXEL_PROMPT = `I have provided a 3D rendered floor plan image.
 Code a beautiful voxel art scene that accurately represents this floor plan layout.
 Write Three.js code as a single-page HTML file.
+Use browser-safe script tags (NON-module): do not use \`type="module"\` and do not use ES import statements.
+Use global scripts compatible with downloaded HTML files:
+- https://unpkg.com/three@0.160.0/build/three.min.js
+- https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js
+Expose globals explicitly:
+- window.scene
+- window.camera
+- window.renderer
+- window.controls
 
 CRITICAL REQUIREMENTS — pay close attention to these:
 - WALLS: Every wall must be clearly visible as a solid 3D structure with proper height and thickness. Walls should form complete enclosures for each room. Do not skip any walls — trace every wall boundary from the floor plan precisely.
@@ -44,6 +53,12 @@ Specifically, look for and fix the following issues:
 3. Incorrect dimensions or proportions.
 4. Z-fighting or flickering textures (ensure tiny gaps exist between overlapping coplanar faces).
 5. Floating objects or misaligned elements.
+6. Browser incompatibility for downloaded files.
+
+IMPORTANT OUTPUT REQUIREMENTS:
+- Output complete HTML only.
+- Use NON-module script tags, no ES module imports.
+- Ensure \`window.scene\`, \`window.camera\`, \`window.renderer\`, and \`window.controls\` are assigned.
 
 Fix the code and output the complete, corrected single-page HTML file (with Three.js code inside). Ensure the final code satisfies all requirements of a beautifully rendered 3D voxel scene.`;
 

@@ -19,6 +19,186 @@ export const extractHtmlFromText = (text: string): string => {
 };
 
 /**
+ * Exposes common Three.js scene objects on window so injected helpers
+ * (WASD/city/z-fighting patches) can reliably find them.
+ */
+export const exposeThreeGlobals = (html: string): string => {
+  let patched = html;
+
+  const mappings: Array<{ pattern: RegExp; replacement: string }> = [
+    {
+      pattern: /\bconst\s+scene\s*=\s*new\s+THREE\.Scene\s*\(/g,
+      replacement: 'const scene = window.scene = new THREE.Scene(',
+    },
+    {
+      pattern: /\blet\s+scene\s*=\s*new\s+THREE\.Scene\s*\(/g,
+      replacement: 'let scene = window.scene = new THREE.Scene(',
+    },
+    {
+      pattern: /\bconst\s+camera\s*=\s*new\s+THREE\./g,
+      replacement: 'const camera = window.camera = new THREE.',
+    },
+    {
+      pattern: /\blet\s+camera\s*=\s*new\s+THREE\./g,
+      replacement: 'let camera = window.camera = new THREE.',
+    },
+    {
+      pattern: /\bconst\s+renderer\s*=\s*new\s+THREE\.WebGLRenderer\s*\(/g,
+      replacement: 'const renderer = window.renderer = new THREE.WebGLRenderer(',
+    },
+    {
+      pattern: /\blet\s+renderer\s*=\s*new\s+THREE\.WebGLRenderer\s*\(/g,
+      replacement: 'let renderer = window.renderer = new THREE.WebGLRenderer(',
+    },
+    {
+      pattern: /\bconst\s+controls\s*=\s*new\s+OrbitControls\s*\(/g,
+      replacement: 'const controls = window.controls = new OrbitControls(',
+    },
+    {
+      pattern: /\blet\s+controls\s*=\s*new\s+OrbitControls\s*\(/g,
+      replacement: 'let controls = window.controls = new OrbitControls(',
+    },
+  ];
+
+  for (const mapping of mappings) {
+    patched = patched.replace(mapping.pattern, mapping.replacement);
+  }
+
+  return patched;
+};
+
+/**
+ * Ensures scene startup won't crash if OrbitControls script fails to load.
+ * Adds a minimal fallback OrbitControls implementation.
+ */
+export const ensureOrbitControlsFallback = (html: string): string => {
+  const fallbackScript = `
+    <script>
+    (function() {
+      function installFallback() {
+        if (!window.THREE) {
+          setTimeout(installFallback, 100);
+          return;
+        }
+        if (window.THREE.OrbitControls) return;
+        function OrbitControls(camera, domElement) {
+          this.object = camera;
+          this.domElement = domElement || document;
+          this.target = new window.THREE.Vector3(0, 0, 0);
+          this.update = function() {
+            if (this.object && this.object.lookAt) this.object.lookAt(this.target);
+          };
+        }
+        window.THREE.OrbitControls = OrbitControls;
+      }
+      installFallback();
+    })();
+    </script>
+  `;
+
+  if (html.toLowerCase().includes('</head>')) {
+    return html.replace(/<\/head>/i, `${fallbackScript}</head>`);
+  }
+  if (html.toLowerCase().includes('</body>')) {
+    return html.replace(/<\/body>/i, `${fallbackScript}</body>`);
+  }
+  return html + fallbackScript;
+};
+
+/**
+ * Rewrites OrbitControls construction to a safe fallback constructor expression.
+ * Prevents hard crashes when CDN OrbitControls script fails to load.
+ */
+export const hardenOrbitControlsUsage = (html: string): string => {
+  const safeCtor = `new ((window.THREE && window.THREE.OrbitControls) ? window.THREE.OrbitControls : (function(){ function F(camera){ this.object = camera; this.target = (window.THREE && window.THREE.Vector3) ? new window.THREE.Vector3(0,0,0) : {x:0,y:0,z:0}; this.update = function(){ if (this.object && this.object.lookAt) this.object.lookAt(this.target); }; } return F; })())`;
+
+  let patched = html.replace(/new\s+THREE\.OrbitControls\s*\(/g, `${safeCtor}(`);
+  patched = patched.replace(/new\s+OrbitControls\s*\(/g, `${safeCtor}(`);
+  return patched;
+};
+
+/**
+ * Fixes a known Gemini-generated TDZ issue where b3BL/b3TL are used
+ * before declaration inside createFloorPlan().
+ */
+export const fixKnownTDZPatterns = (html: string): string => {
+  let patched = html;
+
+  const earlyDecl = 'const b3TL = roomsData.bedroom3TL, b3BL = roomsData.bedroom3BL;';
+  if (
+    patched.includes('b3BL.z + b3BL.depth') &&
+    patched.includes('roomsData.bedroom3TL') &&
+    patched.includes('roomsData.bedroom3BL')
+  ) {
+    // Insert early declaration right after wic2 assignment line when present.
+    patched = patched.replace(
+      /(roomsData\.wic2\s*=\s*\{[\s\S]*?\};)/,
+      `$1\n\n            ${earlyDecl}`
+    );
+
+    // Remove duplicate declaration later if present with pB/pE chain.
+    patched = patched.replace(
+      /const\s+pB\s*=\s*roomsData\.principalBedroom,\s*pE\s*=\s*roomsData\.principalEnsuite;\s*\n\s*const\s+b3TL\s*=\s*roomsData\.bedroom3TL,\s*b3BL\s*=\s*roomsData\.bedroom3BL;/,
+      'const pB = roomsData.principalBedroom, pE = roomsData.principalEnsuite;'
+    );
+  }
+
+  return patched;
+};
+
+/**
+ * Injects a visible runtime error overlay into exported scene HTML.
+ * Prevents silent blank pages by surfacing JS errors directly to user.
+ */
+export const injectSceneErrorOverlay = (html: string): string => {
+  const script = `
+    <script>
+    (function() {
+      function ensureBox() {
+        var box = document.getElementById('__scene_error_box__');
+        if (box) return box;
+        box = document.createElement('div');
+        box.id = '__scene_error_box__';
+        box.style.position = 'fixed';
+        box.style.left = '8px';
+        box.style.bottom = '8px';
+        box.style.zIndex = '2147483647';
+        box.style.maxWidth = '80vw';
+        box.style.maxHeight = '40vh';
+        box.style.overflow = 'auto';
+        box.style.padding = '8px 10px';
+        box.style.font = '12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace';
+        box.style.background = 'rgba(120,0,0,0.88)';
+        box.style.color = '#fff';
+        box.style.border = '1px solid #ffb3b3';
+        box.style.display = 'none';
+        document.body.appendChild(box);
+        return box;
+      }
+      function show(msg) {
+        var box = ensureBox();
+        box.style.display = 'block';
+        box.textContent = '[Scene Error] ' + msg;
+      }
+      window.addEventListener('error', function(e) {
+        var message = (e && (e.message || (e.error && e.error.message))) || 'Unknown error';
+        show(message);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var reason = e && e.reason;
+        show(reason && reason.message ? reason.message : String(reason));
+      });
+    })();
+    </script>
+  `;
+
+  if (html.toLowerCase().includes('</body>')) {
+    return html.replace(/<\/body>/i, `${script}</body>`);
+  }
+  return html + script;
+};
+
+/**
  * Injects CSS to hide common overlay/text elements in Three.js scenes.
  */
 export const hideBodyText = (html: string): string => {
