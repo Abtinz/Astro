@@ -3,11 +3,11 @@ import Stepper from './components/Stepper';
 import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
-import { generateFloorPlanRenderAgentic, generateVoxelSceneAgentic } from './services/gemini';
-import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting, exposeThreeGlobals, ensureOrbitControlsFallback, hardenOrbitControlsUsage, fixKnownTDZPatterns, injectSceneErrorOverlay } from './utils/html';
+import { generateFloorPlanRender, generateVoxelScene, fixVoxelScene } from './services/gemini';
+import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting, exposeThreeGlobals, ensureOrbitControlsFallback, hardenOrbitControlsUsage, fixKnownTDZPatterns, injectSceneErrorOverlay, injectOrbitControlLimits } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
-type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'error';
+type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'validating_voxels' | 'error';
 type ViewMode = 'upload' | 'render' | 'voxel';
 
 const App: React.FC = () => {
@@ -60,14 +60,11 @@ const App: React.FC = () => {
     setThinkingText(null);
 
     try {
-      const result = await generateFloorPlanRenderAgentic(uploadedImage, styleReference, (msg) => {
-        setThinkingText(msg);
-      });
+      const result = await generateFloorPlanRender(uploadedImage, styleReference);
       setRenderedImage(result);
       setVoxelCode(null);
       setViewMode('render');
       setStatus('idle');
-      setThinkingText(null);
     } catch (err: any) {
       setStatus('error');
       setErrorMsg(err.message || 'Failed to generate 3D render.');
@@ -82,30 +79,44 @@ const App: React.FC = () => {
     setErrorMsg('');
     setThinkingText(null);
 
-    let thoughtBuffer = '';
-
     try {
-      const fixedCodeRaw = await generateVoxelSceneAgentic(
-        renderedImage,
-        (msg) => {
-          setThinkingText(msg);
-        },
-        (fragment) => {
-          thoughtBuffer += fragment;
-          setThinkingText((prev) => (prev === fragment ? prev : fragment));
+      let thoughtBuffer = '';
+      const codeRaw = await generateVoxelScene(renderedImage, (fragment) => {
+        thoughtBuffer += fragment;
+        const matches = thoughtBuffer.match(/\*\*([^*]+)\*\*/g);
+        if (matches && matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const header = lastMatch.replace(/\*\*/g, '').trim();
+          setThinkingText((prev) => (prev === header ? prev : header));
         }
-      );
+      });
+
+      setStatus('validating_voxels');
+      setThinkingText(null);
+
+      let fixThoughtBuffer = '';
+      const fixedCodeRaw = await fixVoxelScene(renderedImage, codeRaw, (fragment) => {
+        fixThoughtBuffer += fragment;
+        const matches = fixThoughtBuffer.match(/\*\*([^*]+)\*\*/g);
+        if (matches && matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const header = lastMatch.replace(/\*\*/g, '').trim();
+          setThinkingText((prev) => (prev === header ? prev : header));
+        }
+      });
 
       const code = fixZFighting(
         injectCityEnvironment(
           injectWASDControls(
-            zoomCamera(
-              hideBodyText(
-                injectSceneErrorOverlay(
-                  ensureOrbitControlsFallback(
-                    hardenOrbitControlsUsage(
-                      fixKnownTDZPatterns(
-                        exposeThreeGlobals(fixedCodeRaw)
+            injectOrbitControlLimits(
+              zoomCamera(
+                hideBodyText(
+                  injectSceneErrorOverlay(
+                    ensureOrbitControlsFallback(
+                      hardenOrbitControlsUsage(
+                        fixKnownTDZPatterns(
+                          exposeThreeGlobals(fixedCodeRaw)
+                        )
                       )
                     )
                   )
@@ -155,11 +166,12 @@ const App: React.FC = () => {
     setThinkingText(null);
   };
 
-  const isLoading = status === 'generating_render' || status === 'generating_voxels';
+  const isLoading = status === 'generating_render' || status === 'generating_voxels' || status === 'validating_voxels';
 
   const getLoadingStatus = () => {
     if (status === 'generating_render') return 'Generating 3D render with Gemini Flash...';
-    if (status === 'generating_voxels') return 'Running builder/reviewer agents for 3D scene...';
+    if (status === 'generating_voxels') return 'Generating 3D voxel scene with Gemini Pro...';
+    if (status === 'validating_voxels') return 'Validating and fixing 3D scene with Gemini Pro...';
     return '';
   };
 

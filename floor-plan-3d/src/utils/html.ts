@@ -354,6 +354,48 @@ export const injectWASDControls = (html: string): string => {
 };
 
 /**
+ * Restricts OrbitControls so mouse cannot freely pan scene away.
+ * Keeps rotation/zoom available with practical limits.
+ */
+export const injectOrbitControlLimits = (html: string): string => {
+  const script = `
+    <script>
+    (function() {
+      function applyLimits() {
+        var controls = window.controls || window._controls;
+        if (!controls) {
+          for (const k of Object.keys(window)) {
+            const v = window[k];
+            if (v && v.target && typeof v.update === 'function') {
+              controls = v;
+              break;
+            }
+          }
+        }
+        if (!controls) { setTimeout(applyLimits, 400); return; }
+
+        controls.enablePan = false;
+        controls.screenSpacePanning = false;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 8;
+        controls.maxDistance = 140;
+        controls.minPolarAngle = 0.35;
+        controls.maxPolarAngle = 1.45;
+        if (controls.update) controls.update();
+      }
+      setTimeout(applyLimits, 1200);
+    })();
+    </script>
+  `;
+
+  if (html.toLowerCase().includes('</body>')) {
+    return html.replace(/<\/body>/i, `${script}</body>`);
+  }
+  return html + script;
+};
+
+/**
  * Injects a static procedural city environment around the voxel scene.
  * Adds ground plane, surrounding buildings, roads, and sky gradient.
  */

@@ -2,7 +2,6 @@ import { GoogleGenAI } from '@google/genai';
 import { extractHtmlFromText } from '../utils/html';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-const FAST_MODEL = 'gemini-2.5-flash';
 
 const RENDER_PROMPT = `Transform this 2D architectural floor plan into a 3D rendered visualization.
 Match the style, perspective, and level of detail shown in the reference image.
@@ -18,15 +17,6 @@ The second image is the style reference to match.`;
 const VOXEL_PROMPT = `I have provided a 3D rendered floor plan image.
 Code a beautiful voxel art scene that accurately represents this floor plan layout.
 Write Three.js code as a single-page HTML file.
-Use browser-safe script tags (NON-module): do not use \`type="module"\` and do not use ES import statements.
-Use global scripts compatible with downloaded HTML files:
-- https://unpkg.com/three@0.160.0/build/three.min.js
-- https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js
-Expose globals explicitly:
-- window.scene
-- window.camera
-- window.renderer
-- window.controls
 
 CRITICAL REQUIREMENTS — pay close attention to these:
 - WALLS: Every wall must be clearly visible as a solid 3D structure with proper height and thickness. Walls should form complete enclosures for each room. Do not skip any walls — trace every wall boundary from the floor plan precisely.
@@ -53,44 +43,8 @@ Specifically, look for and fix the following issues:
 3. Incorrect dimensions or proportions.
 4. Z-fighting or flickering textures (ensure tiny gaps exist between overlapping coplanar faces).
 5. Floating objects or misaligned elements.
-6. Browser incompatibility for downloaded files.
-
-IMPORTANT OUTPUT REQUIREMENTS:
-- Output complete HTML only.
-- Use NON-module script tags, no ES module imports.
-- Ensure \`window.scene\`, \`window.camera\`, \`window.renderer\`, and \`window.controls\` are assigned.
 
 Fix the code and output the complete, corrected single-page HTML file (with Three.js code inside). Ensure the final code satisfies all requirements of a beautifully rendered 3D voxel scene.`;
-
-const extractThinkingHeader = (buffer: string): string | null => {
-  const matches = buffer.match(/\*\*([^*]+)\*\*/g);
-  if (!matches?.length) return null;
-  return matches[matches.length - 1].replace(/\*\*/g, '').trim();
-};
-
-const runPlanningAgent = async (
-  imageBase64: string,
-  prompt: string
-): Promise<string> => {
-  const data = imageBase64.split(',')[1] || imageBase64;
-  const mime = imageBase64.match(/^data:(.*?);base64,/)?.[1] || 'image/jpeg';
-
-  const response = await ai.models.generateContent({
-    model: FAST_MODEL,
-    contents: {
-      parts: [
-        {
-          inlineData: {
-            mimeType: mime,
-            data,
-          },
-        },
-        { text: prompt },
-      ],
-    },
-  });
-  return response.text?.trim() || '';
-};
 
 /**
  * Sends the customer's floor plan + style reference to Gemini Flash
@@ -139,58 +93,6 @@ export const generateFloorPlanRender = async (
     return `data:${mimeType};base64,${base64ImageBytes}`;
   }
   throw new Error('No image generated. Gemini returned an empty response.');
-};
-
-/**
- * Agentic render pipeline (planner + renderer) under the same UI button.
- */
-export const generateFloorPlanRenderAgentic = async (
-  floorPlanBase64: string,
-  styleReferenceBase64: string,
-  onAgentUpdate?: (message: string) => void
-): Promise<string> => {
-  onAgentUpdate?.('Agent Planner: analyzing floor plan and style...');
-
-  const plannerNotes = await runPlanningAgent(
-    floorPlanBase64,
-    `You are a planner sub-agent for floor-plan rendering.
-Return 5 short bullet points only, focused on:
-- mandatory door visibility
-- wall integrity
-- stair naturality and ceiling clearance
-- furniture/material realism
-- camera perspective consistency`
-  );
-
-  const floorPlanData = floorPlanBase64.split(',')[1] || floorPlanBase64;
-  const floorPlanMime = floorPlanBase64.match(/^data:(.*?);base64,/)?.[1] || 'image/jpeg';
-  const styleData = styleReferenceBase64.split(',')[1] || styleReferenceBase64;
-  const styleMime = styleReferenceBase64.match(/^data:(.*?);base64,/)?.[1] || 'image/jpeg';
-
-  onAgentUpdate?.('Agent Renderer: generating 3D render...');
-
-  const response = await ai.models.generateContent({
-    model: 'nano-banana-pro-preview',
-    contents: {
-      parts: [
-        { inlineData: { mimeType: floorPlanMime, data: floorPlanData } },
-        { inlineData: { mimeType: styleMime, data: styleData } },
-        { text: `${RENDER_PROMPT}\n\nPlanner notes:\n${plannerNotes}` },
-      ],
-    },
-    config: {
-      responseModalities: ['IMAGE'],
-    },
-  });
-
-  const part = response.candidates?.[0]?.content?.parts?.[0];
-  if (part && part.inlineData) {
-    const base64ImageBytes = part.inlineData.data;
-    const mimeType = part.inlineData.mimeType || 'image/png';
-    return `data:${mimeType};base64,${base64ImageBytes}`;
-  }
-
-  throw new Error('No image generated. Agent renderer returned an empty response.');
 };
 
 /**
@@ -249,8 +151,7 @@ export const generateVoxelScene = async (
 };
 
 /**
- * Sends a generated Three.js HTML scene back to Gemini Pro along with the reference image,
- * asking it to diagnose errors and fix the code. Streams thought updates.
+ * Sends generated Three.js scene back to Gemini Pro and asks it to fix issues.
  */
 export const fixVoxelScene = async (
   imageBase64: string,
@@ -305,103 +206,4 @@ export const fixVoxelScene = async (
   }
 
   return extractHtmlFromText(fullHtml);
-};
-
-/**
- * Agentic voxel pipeline (planner + builder + reviewer) under the same UI button.
- */
-export const generateVoxelSceneAgentic = async (
-  imageBase64: string,
-  onAgentUpdate?: (message: string) => void,
-  onThoughtUpdate?: (thought: string) => void
-): Promise<string> => {
-  onAgentUpdate?.('Agent Planner: mapping walls, doors, and stairs...');
-
-  const plannerNotes = await runPlanningAgent(
-    imageBase64,
-    `You are a planner sub-agent for voxel generation.
-Return 6 short bullets only:
-- wall tracing priorities
-- exact door opening placements
-- stair run and headroom constraints
-- anti z-fighting advice
-- camera/navigation constraints
-- common failure points to avoid`
-  );
-
-  const base64Data = imageBase64.split(',')[1] || imageBase64;
-  const mimeType = imageBase64.match(/^data:(.*?);base64,/)?.[1] || 'image/jpeg';
-
-  onAgentUpdate?.('Agent Builder: generating initial 3D scene...');
-
-  let fullHtml = '';
-  let thoughtBuffer = '';
-  const buildResponse = await ai.models.generateContentStream({
-    model: FAST_MODEL,
-    contents: {
-      parts: [
-        { inlineData: { mimeType, data: base64Data } },
-        { text: `${VOXEL_PROMPT}\n\nPlanner notes:\n${plannerNotes}` },
-      ],
-    },
-    config: {
-      thinkingConfig: {
-        includeThoughts: true,
-      },
-    },
-  });
-
-  for await (const chunk of buildResponse) {
-    const parts = chunk.candidates?.[0]?.content?.parts;
-    if (!parts) continue;
-    for (const part of parts) {
-      const p = part as any;
-      if (p.thought && p.text) {
-        thoughtBuffer += p.text;
-        const header = extractThinkingHeader(thoughtBuffer);
-        if (header) onThoughtUpdate?.(header);
-      } else if (p.text) {
-        fullHtml += p.text;
-      }
-    }
-  }
-
-  const firstPassHtml = extractHtmlFromText(fullHtml);
-  onAgentUpdate?.('Agent Reviewer: validating and fixing scene...');
-
-  let fixedHtmlRaw = '';
-  let fixThoughtBuffer = '';
-  const reviewResponse = await ai.models.generateContentStream({
-    model: FAST_MODEL,
-    contents: {
-      parts: [
-        { inlineData: { mimeType, data: base64Data } },
-        { text: FIX_VOXEL_PROMPT },
-        { text: `Planner notes:\n${plannerNotes}` },
-        { text: `Here is the currently generated code to fix:\n${firstPassHtml}` },
-      ],
-    },
-    config: {
-      thinkingConfig: {
-        includeThoughts: true,
-      },
-    },
-  });
-
-  for await (const chunk of reviewResponse) {
-    const parts = chunk.candidates?.[0]?.content?.parts;
-    if (!parts) continue;
-    for (const part of parts) {
-      const p = part as any;
-      if (p.thought && p.text) {
-        fixThoughtBuffer += p.text;
-        const header = extractThinkingHeader(fixThoughtBuffer);
-        if (header) onThoughtUpdate?.(header);
-      } else if (p.text) {
-        fixedHtmlRaw += p.text;
-      }
-    }
-  }
-
-  return extractHtmlFromText(fixedHtmlRaw);
 };
