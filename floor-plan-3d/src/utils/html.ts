@@ -51,49 +51,111 @@ export const injectWASDControls = (html: string): string => {
   const script = `
     <script>
     (function() {
-      const keys = {};
-      const speed = 2;
-      window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
-      window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+      const keys = Object.create(null);
+      const SPEED = 0.18;
+      const UP_KEYS = ['arrowup', 'w'];
+      const DOWN_KEYS = ['arrowdown', 's'];
+      const LEFT_KEYS = ['arrowleft', 'a'];
+      const RIGHT_KEYS = ['arrowright', 'd'];
 
-      function tryAttach() {
-        const camera = window._camera || (typeof camera !== 'undefined' ? camera : null);
-        const controls = window._controls || (typeof controls !== 'undefined' ? controls : null);
-        if (!camera) { setTimeout(tryAttach, 500); return; }
-
-        const move = new (window.THREE || { Vector3: class {} }).Vector3();
-        function update() {
-          requestAnimationFrame(update);
-          const dir = new (window.THREE.Vector3)();
-          camera.getWorldDirection(dir);
-          dir.y = 0; dir.normalize();
-          const right = new (window.THREE.Vector3)().crossVectors(dir, camera.up).normalize();
-
-          move.set(0, 0, 0);
-          if (keys['w']) move.add(dir.clone().multiplyScalar(speed));
-          if (keys['s']) move.add(dir.clone().multiplyScalar(-speed));
-          if (keys['a']) move.add(right.clone().multiplyScalar(-speed));
-          if (keys['d']) move.add(right.clone().multiplyScalar(speed));
-          if (keys['e']) move.y += speed;
-          if (keys['q']) move.y -= speed;
-
-          if (move.length() > 0) {
-            const delta = move.multiplyScalar(0.05);
-            camera.position.add(delta);
-            if (controls && controls.target) controls.target.add(delta);
-          }
-        }
-        update();
+      function markKey(e, down) {
+        const k = (e.key || '').toLowerCase();
+        keys[k] = down;
       }
 
-      // Try to find camera/controls after scene initializes
-      setTimeout(() => {
-        // Look for common variable patterns in generated Three.js code
-        const iframe = window;
-        if (iframe.camera) { window._camera = iframe.camera; }
-        if (iframe.controls) { window._controls = iframe.controls; }
-        tryAttach();
-      }, 1000);
+      window.addEventListener('keydown', function(e) { markKey(e, true); }, { passive: true });
+      window.addEventListener('keyup', function(e) { markKey(e, false); }, { passive: true });
+      window.addEventListener('blur', function() {
+        for (const k in keys) delete keys[k];
+      });
+
+      function hasAny(arr) {
+        for (let i = 0; i < arr.length; i++) {
+          if (keys[arr[i]]) return true;
+        }
+        return false;
+      }
+
+      function resolveCamera(T) {
+        if (window._camera && window._camera.isCamera) return window._camera;
+        if (window.camera && window.camera.isCamera) return window.camera;
+        for (const k of Object.keys(window)) {
+          const v = window[k];
+          if (v && v.isCamera) return v;
+        }
+        return null;
+      }
+
+      function resolveControls() {
+        if (window._controls && window._controls.target) return window._controls;
+        if (window.controls && window.controls.target) return window.controls;
+        for (const k of Object.keys(window)) {
+          const v = window[k];
+          if (v && v.target && v.update && typeof v.update === 'function') return v;
+        }
+        return null;
+      }
+
+      function ensureFocusTarget() {
+        if (!document.body) return;
+        if (document.body.tabIndex < 0) document.body.tabIndex = 0;
+        window.addEventListener('pointerdown', function() {
+          try { window.focus(); } catch (_e) {}
+          try { document.body.focus(); } catch (_e) {}
+        });
+      }
+
+      function tryAttach() {
+        const T = window.THREE;
+        if (!T || !T.Vector3) { setTimeout(tryAttach, 400); return; }
+
+        const cam = resolveCamera(T);
+        if (!cam) { setTimeout(tryAttach, 400); return; }
+
+        const controls = resolveControls();
+        window._camera = cam;
+        if (controls) window._controls = controls;
+
+        const dir = new T.Vector3();
+        const right = new T.Vector3();
+        const move = new T.Vector3();
+        let last = performance.now();
+
+        function tick(now) {
+          requestAnimationFrame(tick);
+
+          const dt = Math.min((now - last) / 16.67, 3);
+          last = now;
+
+          move.set(0, 0, 0);
+          cam.getWorldDirection(dir);
+          dir.y = 0;
+          if (dir.lengthSq() > 0) dir.normalize();
+          right.crossVectors(dir, cam.up).normalize();
+
+          if (hasAny(UP_KEYS)) move.add(dir);
+          if (hasAny(DOWN_KEYS)) move.addScaledVector(dir, -1);
+          if (hasAny(LEFT_KEYS)) move.addScaledVector(right, -1);
+          if (hasAny(RIGHT_KEYS)) move.add(right);
+          if (keys['e']) move.y += 1;
+          if (keys['q']) move.y -= 1;
+
+          if (move.lengthSq() > 0) {
+            move.normalize().multiplyScalar(SPEED * dt);
+            cam.position.add(move);
+            const activeControls = resolveControls();
+            if (activeControls && activeControls.target) {
+              activeControls.target.add(move);
+              if (typeof activeControls.update === 'function') activeControls.update();
+            }
+          }
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      ensureFocusTarget();
+      setTimeout(tryAttach, 900);
     })();
     </script>
   `;
