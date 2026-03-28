@@ -136,10 +136,27 @@ export const injectCityEnvironment = (html: string): string => {
         const renderer = window.renderer;
         if (renderer) { renderer.logarithmicDepthBuffer = true; }
 
-        // Ground plane — use a solid box to avoid z-fighting
+        // Find the voxel scene's floor color to match
+        let floorColor = 0x3a3a3a;
+        sc.traverse(function(child) {
+          if (child.isMesh && child.geometry) {
+            var params = child.geometry.parameters;
+            // Look for a large flat mesh (floor plane or box)
+            if (params) {
+              var isWideFlat = (params.width > 20 && params.depth > 20 && (!params.height || params.height < 2))
+                || (params.width > 20 && params.height > 20 && params.depth < 2);
+              if (isWideFlat && child.material && child.material.color) {
+                floorColor = child.material.color.getHex();
+              }
+            }
+          }
+        });
+
+        // Ground plane — use a solid box to avoid z-fighting, matching voxel floor color
+        const groundMat = new T.MeshLambertMaterial({ color: floorColor });
         const ground = new T.Mesh(
           new T.BoxGeometry(600, 1, 600),
-          new T.MeshLambertMaterial({ color: 0x3a3a3a })
+          groundMat
         );
         ground.position.y = -1;
         ground.receiveShadow = true;
@@ -271,7 +288,8 @@ export const injectCityEnvironment = (html: string): string => {
         }
 
         // Add ambient light if scene is dark
-        const ambientExists = sc.children.some((c: any) => c.isAmbientLight);
+        var ambientExists = false;
+        sc.children.forEach(function(c) { if (c.isAmbientLight) ambientExists = true; });
         if (!ambientExists) {
           sc.add(new T.AmbientLight(0xffffff, 0.4));
         }
@@ -286,6 +304,84 @@ export const injectCityEnvironment = (html: string): string => {
       }
 
       setTimeout(buildCity, 1500);
+    })();
+    </script>
+  `;
+
+  if (html.toLowerCase().includes('</body>')) {
+    return html.replace(/<\/body>/i, `${script}</body>`);
+  }
+  return html + script;
+};
+
+/**
+ * Injects a script that fixes Z-fighting by enabling logarithmic depth buffer,
+ * applying polygon offset to all meshes, and adjusting camera near/far planes.
+ */
+export const fixZFighting = (html: string): string => {
+  // Patch the renderer creation to use logarithmic depth buffer from the start
+  let patched = html.replace(
+    /new\s+THREE\.WebGLRenderer\s*\(\s*\{/g,
+    'new THREE.WebGLRenderer({ logarithmicDepthBuffer: true,'
+  );
+
+  // Also patch camera near plane for better depth precision
+  patched = patched.replace(
+    /\.near\s*=\s*0\.1/g,
+    '.near = 0.5'
+  );
+
+  const script = `
+    <script>
+    (function() {
+      function patchScene() {
+        var T = window.THREE;
+        if (!T) { setTimeout(patchScene, 500); return; }
+
+        var sc = window.scene;
+        if (!sc) {
+          var keys = Object.keys(window);
+          for (var i = 0; i < keys.length; i++) {
+            if (window[keys[i]] instanceof T.Scene) { sc = window[keys[i]]; break; }
+          }
+        }
+        if (!sc) { setTimeout(patchScene, 500); return; }
+
+        // Adjust camera near/far for better depth precision
+        var cam = window.camera || window._camera;
+        if (cam) {
+          cam.near = 0.5;
+          cam.far = 5000;
+          cam.updateProjectionMatrix();
+        }
+
+        // Separate overlapping stair meshes by adding tiny Y offsets
+        var stairIndex = 0;
+        sc.traverse(function(child) {
+          if (child.isMesh && child.geometry) {
+            var params = child.geometry.parameters;
+            // Detect stair-like meshes: small boxes stacked vertically
+            if (params && params.width && params.height && params.depth) {
+              if (params.width < 10 && params.height < 3 && params.depth < 10) {
+                child.position.y += stairIndex * 0.01;
+                stairIndex++;
+              }
+            }
+            // Apply polygon offset to all materials
+            if (child.material) {
+              var mats = Array.isArray(child.material) ? child.material : [child.material];
+              for (var m = 0; m < mats.length; m++) {
+                mats[m].polygonOffset = true;
+                mats[m].polygonOffsetFactor = 1;
+                mats[m].polygonOffsetUnits = 1;
+                mats[m].needsUpdate = true;
+              }
+            }
+          }
+        });
+      }
+
+      setTimeout(patchScene, 2000);
     })();
     </script>
   `;

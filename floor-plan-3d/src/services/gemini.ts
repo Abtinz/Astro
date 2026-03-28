@@ -15,7 +15,14 @@ The second image is the style reference to match.`;
 const VOXEL_PROMPT = `I have provided a 3D rendered floor plan image.
 Code a beautiful voxel art scene that accurately represents this floor plan layout.
 Write Three.js code as a single-page HTML file.
-Include all rooms, walls, furniture, and architectural features visible in the image.
+
+CRITICAL REQUIREMENTS — pay close attention to these:
+- WALLS: Every wall must be clearly visible as a solid 3D structure with proper height and thickness. Walls should form complete enclosures for each room. Do not skip any walls — trace every wall boundary from the floor plan precisely.
+- DOORS: Represent each door as a visible opening/gap in the wall with a door frame. Doors must be placed at the exact positions shown in the image. Use a different color or a thin rectangular panel to show the door.
+- STAIRS: If stairs are visible in the image, include them as a series of stacked box steps rising in height. Do NOT omit stairs. IMPORTANT: Each stair step must be at a UNIQUE Y position with NO overlapping faces between steps. Leave a tiny gap (0.05 units) between each step to prevent z-fighting/flashing.
+- Include all rooms, furniture, and architectural features visible in the image.
+- Each room should be distinguishable by its walls and door placements.
+
 Make it interactive with OrbitControls for mouse rotation/zoom AND WASD keyboard controls for first-person movement:
 - W: move camera forward
 - A: move camera left

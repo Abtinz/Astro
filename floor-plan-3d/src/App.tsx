@@ -4,7 +4,7 @@ import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
 import { generateFloorPlanRender, generateVoxelScene } from './services/gemini';
-import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment } from './utils/html';
+import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
 type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'error';
@@ -92,7 +92,7 @@ const App: React.FC = () => {
         }
       });
 
-      const code = injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(codeRaw))));
+      const code = fixZFighting(injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(codeRaw)))));
       setVoxelCode(code);
       setViewMode('voxel');
       setStatus('idle');
@@ -190,6 +190,18 @@ const App: React.FC = () => {
 
       {/* Action Buttons */}
       <div className="actions">
+        {/* Generation buttons — primary actions first */}
+        {uploadedImage && (
+          <button className="btn btn-primary" onClick={handleGenerateRender} disabled={isLoading || !styleReference}>
+            {status === 'generating_render' ? 'Generating...' : renderedImage ? 'Regenerate 3D Render' : 'Generate 3D Render'}
+          </button>
+        )}
+        {renderedImage && (
+          <button className="btn btn-primary" onClick={handleGenerateVoxels} disabled={isLoading}>
+            {status === 'generating_voxels' ? 'Generating...' : voxelCode ? 'Regenerate 3D Scene' : 'Generate 3D Scene'}
+          </button>
+        )}
+
         {/* View toggles */}
         {uploadedImage && renderedImage && viewMode !== 'upload' && (
           <button className="btn btn-secondary" onClick={() => setViewMode('upload')} disabled={isLoading}>
@@ -204,18 +216,6 @@ const App: React.FC = () => {
         {voxelCode && viewMode !== 'voxel' && (
           <button className="btn btn-secondary" onClick={() => setViewMode('voxel')} disabled={isLoading}>
             View 3D Scene
-          </button>
-        )}
-
-        {/* Generation buttons */}
-        {uploadedImage && (
-          <button className="btn btn-primary" onClick={handleGenerateRender} disabled={isLoading || !styleReference}>
-            {status === 'generating_render' ? 'Generating...' : renderedImage ? 'Regenerate 3D Render' : 'Generate 3D Render'}
-          </button>
-        )}
-        {renderedImage && (
-          <button className="btn btn-primary" onClick={handleGenerateVoxels} disabled={isLoading}>
-            {status === 'generating_voxels' ? 'Generating...' : voxelCode ? 'Regenerate 3D Scene' : 'Generate 3D Scene'}
           </button>
         )}
 
