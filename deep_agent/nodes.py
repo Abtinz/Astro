@@ -28,7 +28,7 @@ Context:
 {state.get("context", "None")}
 """.strip()
 
-    data, model = client.generate_json(prompt, preferred_model="gemini-2.5-pro")
+    data, model = client.generate_json(prompt, preferred_model="gemini-2.5-flash")
     state["plan_steps"] = data.get("plan_steps", []) or ["Analyze task", "Implement solution", "Validate output"]
     _append_trace(state, "planner", model, f"generated {len(state['plan_steps'])} steps")
     return state
@@ -53,7 +53,7 @@ Context:
 {state.get("context", "None")}
 """.strip()
 
-    reasoning, model = client.generate_text(prompt, preferred_model="gemini-2.5-pro")
+    reasoning, model = client.generate_text(prompt, preferred_model="gemini-2.5-flash")
     state["reasoning"] = reasoning
     _append_trace(state, "reasoner", model, "produced execution reasoning")
     return state
@@ -65,6 +65,7 @@ def executor_node(state: AgentState, client: GeminiResilientClient) -> AgentStat
 You are an execution agent.
 Generate the best possible response for the task using the provided plan and reasoning.
 Be concrete and implementation-focused.
+Keep the response concise and practical (maximum 350 words).
 
 Task:
 {state["task"]}
@@ -79,7 +80,7 @@ Constraints:
 {state.get("constraints", "None")}
 """.strip()
 
-    draft, model = client.generate_text(prompt, preferred_model="gemini-2.5-pro")
+    draft, model = client.generate_text(prompt, preferred_model="gemini-2.5-flash")
     state["draft_answer"] = draft
     _append_trace(state, "executor", model, "created draft answer")
     return state
@@ -134,7 +135,7 @@ Critique:
 {state.get("critique", "")}
 """.strip()
 
-    refined, model = client.generate_text(prompt, preferred_model="gemini-2.5-pro")
+    refined, model = client.generate_text(prompt, preferred_model="gemini-2.5-flash")
     state["draft_answer"] = refined
     state["current_iteration"] = state.get("current_iteration", 0) + 1
     _append_trace(state, "refiner", model, f"iteration={state['current_iteration']}")

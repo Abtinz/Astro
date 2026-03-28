@@ -178,10 +178,10 @@ const App: React.FC = () => {
 
     try {
       const result = await runDeepAgent({
-        task: 'Create a resilient strategy to improve floor-plan to 3D generation quality, with strict focus on door completeness and natural stairs/ceiling clearance.',
-        constraints: 'Use Gemini with retry/fallback and return actionable implementation guidance.',
+        task: 'Give a short practical plan to improve floor-plan 3D quality for doors and stairs.',
+        constraints: 'Return concise steps only. Focus on actionable fixes.',
         context: `Current frontend status: ${status}. Has upload: ${Boolean(uploadedImage)}. Has render: ${Boolean(renderedImage)}. Has voxel scene: ${Boolean(voxelCode)}.`,
-        max_refinements: 2,
+        max_refinements: 1,
       });
       if (result.error) {
         throw new Error(result.error);
