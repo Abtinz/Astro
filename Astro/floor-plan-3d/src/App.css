@@ -456,21 +456,56 @@ body::after {
   max-width: 400px;
 }
 
-/* Loading video animation */
-.loading-video-wrapper {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
+/* Animated orbital spinner */
+.loading-spinner {
+  width: 56px;
+  height: 56px;
+  position: relative;
 }
 
-.loading-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  pointer-events: none;
-  background: transparent;
+.loading-spinner__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.loading-spinner__ring:nth-child(1) {
+  border-top-color: var(--gold);
+  animation: spin 1.2s linear infinite;
+}
+
+.loading-spinner__ring:nth-child(2) {
+  inset: 6px;
+  border-right-color: var(--gold-dim);
+  animation: spin 1.8s linear reverse infinite;
+}
+
+.loading-spinner__ring:nth-child(3) {
+  inset: 12px;
+  border-bottom-color: rgba(212, 168, 83, 0.3);
+  animation: spin 2.4s linear infinite;
+}
+
+.loading-spinner__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px var(--gold-glow); opacity: 0.7; }
+  50% { box-shadow: 0 0 16px var(--gold-glow); opacity: 1; }
 }
 
 .loading-status {

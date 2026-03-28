@@ -1,9 +1,9 @@
-import React, { useRef, useEffect } from 'react';
-import loadingVideoUrl from '../assets/loading.webm';
+import React from 'react';
 
 interface LoadingOverlayProps {
   status: string;
   thinkingText?: string | null;
+  progress?: number; // 0-100
 }
 
 const PHASE_MAP: Record<string, { label: string; progress: number }> = {
@@ -16,30 +16,16 @@ const PHASE_MAP: Record<string, { label: string; progress: number }> = {
 
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ status, thinkingText }) => {
   const phase = PHASE_MAP[status];
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (v) {
-      v.currentTime = 0;
-      v.play().catch(() => {});
-    }
-  }, []);
 
   return (
     <div className="loading-overlay">
       <div className="loading-content">
-        {/* Loading video */}
-        <div className="loading-video-wrapper">
-          <video
-            ref={videoRef}
-            src={loadingVideoUrl}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="loading-video"
-          />
+        {/* Orbital spinner */}
+        <div className="loading-spinner">
+          <div className="loading-spinner__ring" />
+          <div className="loading-spinner__ring" />
+          <div className="loading-spinner__ring" />
+          <div className="loading-spinner__dot" />
         </div>
 
         {/* Status text */}
