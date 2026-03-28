@@ -3,21 +3,17 @@ import Stepper from './components/Stepper';
 import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
-import { generateFloorPlanRender, generateVoxelScene, fixVoxelScene } from './services/gemini';
-import { checkDeepAgentHealth, runDeepAgent } from './services/deepAgent';
+import { generateFloorPlanRenderAgentic, generateVoxelSceneAgentic } from './services/gemini';
 import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 
-type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'validating_voxels' | 'running_deep_agent' | 'error';
+type AppStatus = 'idle' | 'generating_render' | 'generating_voxels' | 'error';
 type ViewMode = 'upload' | 'render' | 'voxel';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [thinkingText, setThinkingText] = useState<string | null>(null);
-  const [deepAgentHealthy, setDeepAgentHealthy] = useState<boolean | null>(null);
-  const [deepAgentResult, setDeepAgentResult] = useState<string | null>(null);
-  const [deepAgentRequestId, setDeepAgentRequestId] = useState<string | null>(null);
 
   // Data
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -54,8 +50,6 @@ const App: React.FC = () => {
     setVoxelCode(null);
     setViewMode('upload');
     setErrorMsg('');
-    setDeepAgentResult(null);
-    setDeepAgentRequestId(null);
   };
 
   const handleGenerateRender = async () => {
@@ -66,11 +60,14 @@ const App: React.FC = () => {
     setThinkingText(null);
 
     try {
-      const result = await generateFloorPlanRender(uploadedImage, styleReference);
+      const result = await generateFloorPlanRenderAgentic(uploadedImage, styleReference, (msg) => {
+        setThinkingText(msg);
+      });
       setRenderedImage(result);
       setVoxelCode(null);
       setViewMode('render');
       setStatus('idle');
+      setThinkingText(null);
     } catch (err: any) {
       setStatus('error');
       setErrorMsg(err.message || 'Failed to generate 3D render.');
@@ -88,29 +85,16 @@ const App: React.FC = () => {
     let thoughtBuffer = '';
 
     try {
-      const codeRaw = await generateVoxelScene(renderedImage, (fragment) => {
-        thoughtBuffer += fragment;
-        const matches = thoughtBuffer.match(/\*\*([^*]+)\*\*/g);
-        if (matches && matches.length > 0) {
-          const lastMatch = matches[matches.length - 1];
-          const header = lastMatch.replace(/\*\*/g, '').trim();
-          setThinkingText((prev) => (prev === header ? prev : header));
+      const fixedCodeRaw = await generateVoxelSceneAgentic(
+        renderedImage,
+        (msg) => {
+          setThinkingText(msg);
+        },
+        (fragment) => {
+          thoughtBuffer += fragment;
+          setThinkingText((prev) => (prev === fragment ? prev : fragment));
         }
-      });
-
-      setStatus('validating_voxels');
-      setThinkingText(null);
-
-      let fixThoughtBuffer = '';
-      const fixedCodeRaw = await fixVoxelScene(renderedImage, codeRaw, (fragment) => {
-        fixThoughtBuffer += fragment;
-        const matches = fixThoughtBuffer.match(/\*\*([^*]+)\*\*/g);
-        if (matches && matches.length > 0) {
-          const lastMatch = matches[matches.length - 1];
-          const header = lastMatch.replace(/\*\*/g, '').trim();
-          setThinkingText((prev) => (prev === header ? prev : header));
-        }
-      });
+      );
 
       const code = fixZFighting(injectCityEnvironment(injectWASDControls(zoomCamera(hideBodyText(fixedCodeRaw)))));
       setVoxelCode(code);
@@ -151,57 +135,13 @@ const App: React.FC = () => {
     setStatus('idle');
     setErrorMsg('');
     setThinkingText(null);
-    setDeepAgentResult(null);
-    setDeepAgentRequestId(null);
   };
 
-  const handleDeepAgentHealth = async () => {
-    setErrorMsg('');
-    try {
-      const ok = await checkDeepAgentHealth();
-      setDeepAgentHealthy(ok);
-      if (!ok) {
-        setErrorMsg('Deep agent API is not healthy.');
-      }
-    } catch (err: any) {
-      setDeepAgentHealthy(false);
-      setErrorMsg(err.message || 'Failed to reach deep agent API.');
-    }
-  };
-
-  const handleRunDeepAgent = async () => {
-    setStatus('running_deep_agent');
-    setThinkingText(null);
-    setErrorMsg('');
-    setDeepAgentResult(null);
-    setDeepAgentRequestId(null);
-
-    try {
-      const result = await runDeepAgent({
-        task: 'Give a short practical plan to improve floor-plan 3D quality for doors and stairs.',
-        constraints: 'Return concise steps only. Focus on actionable fixes.',
-        context: `Current frontend status: ${status}. Has upload: ${Boolean(uploadedImage)}. Has render: ${Boolean(renderedImage)}. Has voxel scene: ${Boolean(voxelCode)}.`,
-        max_refinements: 1,
-      });
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      setDeepAgentResult(result.final_answer || 'Deep agent finished with no final answer text.');
-      setDeepAgentRequestId(result.request_id || null);
-      setStatus('idle');
-    } catch (err: any) {
-      setStatus('error');
-      setErrorMsg(err.message || 'Deep agent run failed.');
-    }
-  };
-
-  const isLoading = status === 'generating_render' || status === 'generating_voxels' || status === 'validating_voxels' || status === 'running_deep_agent';
+  const isLoading = status === 'generating_render' || status === 'generating_voxels';
 
   const getLoadingStatus = () => {
     if (status === 'generating_render') return 'Generating 3D render with Gemini Flash...';
-    if (status === 'generating_voxels') return 'Generating 3D voxel scene with Gemini Pro...';
-    if (status === 'validating_voxels') return 'Validating and fixing 3D scene with Gemini Pro...';
-    if (status === 'running_deep_agent') return 'Running deep agent orchestration...';
+    if (status === 'generating_voxels') return 'Running builder/reviewer agents for 3D scene...';
     return '';
   };
 
@@ -296,32 +236,7 @@ const App: React.FC = () => {
             Start Over
           </button>
         )}
-
-        <button className="btn btn-secondary" onClick={handleDeepAgentHealth} disabled={isLoading}>
-          Check Deep Agent
-        </button>
-        <button className="btn btn-primary" onClick={handleRunDeepAgent} disabled={isLoading}>
-          {status === 'running_deep_agent' ? 'Running...' : 'Run Deep Agent'}
-        </button>
       </div>
-
-      {deepAgentHealthy !== null && (
-        <div className={`deep-agent-health ${deepAgentHealthy ? 'ok' : 'bad'}`}>
-          Deep Agent Health: {deepAgentHealthy ? 'OK' : 'UNHEALTHY'}
-        </div>
-      )}
-
-      {deepAgentResult && (
-        <div className="deep-agent-output">
-          <div className="deep-agent-output-title">Deep Agent Output</div>
-          {deepAgentRequestId && (
-            <div className="deep-agent-output-request-id">
-              Request ID: {deepAgentRequestId}
-            </div>
-          )}
-          <pre>{deepAgentResult}</pre>
-        </div>
-      )}
     </div>
   );
 };
