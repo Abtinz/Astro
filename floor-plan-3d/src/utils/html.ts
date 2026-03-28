@@ -105,6 +105,194 @@ export const injectWASDControls = (html: string): string => {
 };
 
 /**
+ * Injects a static procedural city environment around the voxel scene.
+ * Adds ground plane, surrounding buildings, roads, and sky gradient.
+ */
+export const injectCityEnvironment = (html: string): string => {
+  const script = `
+    <script>
+    (function() {
+      function buildCity() {
+        const T = window.THREE;
+        if (!T) { setTimeout(buildCity, 500); return; }
+
+        // Find the scene
+        let sc = window.scene;
+        if (!sc) {
+          // Try to find scene from renderer
+          const canvases = document.querySelectorAll('canvas');
+          if (!canvases.length) { setTimeout(buildCity, 500); return; }
+          // Fallback: traverse window properties
+          for (const k of Object.keys(window)) {
+            if (window[k] instanceof T.Scene) { sc = window[k]; break; }
+          }
+        }
+        if (!sc) { setTimeout(buildCity, 500); return; }
+
+        const cityGroup = new T.Group();
+        cityGroup.name = 'city_environment';
+
+        // Ground plane
+        const groundGeo = new T.PlaneGeometry(600, 600);
+        const groundMat = new T.MeshLambertMaterial({ color: 0x3a3a3a });
+        const ground = new T.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.5;
+        ground.receiveShadow = true;
+        cityGroup.add(ground);
+
+        // Road ring around the building
+        const roadGeo = new T.PlaneGeometry(120, 120);
+        const roadMat = new T.MeshLambertMaterial({ color: 0x555555 });
+        const road = new T.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.position.y = -0.3;
+        cityGroup.add(road);
+
+        // Road markings (dashed center lines)
+        const dashMat = new T.MeshLambertMaterial({ color: 0xdddd44 });
+        for (let i = -55; i <= 55; i += 6) {
+          const dash = new T.Mesh(new T.BoxGeometry(2, 0.05, 0.3), dashMat);
+          dash.position.set(i, -0.25, -45);
+          cityGroup.add(dash);
+          const dash2 = new T.Mesh(new T.BoxGeometry(0.3, 0.05, 2), dashMat);
+          dash2.position.set(-45, -0.25, i);
+          cityGroup.add(dash2);
+        }
+
+        // Sidewalk
+        const sidewalkMat = new T.MeshLambertMaterial({ color: 0x999999 });
+        const swPositions = [
+          { x: 0, z: -52, sx: 110, sz: 4 },
+          { x: 0, z: 52, sx: 110, sz: 4 },
+          { x: -52, z: 0, sx: 4, sz: 110 },
+          { x: 52, z: 0, sx: 4, sz: 110 },
+        ];
+        swPositions.forEach(p => {
+          const sw = new T.Mesh(new T.BoxGeometry(p.sx, 0.3, p.sz), sidewalkMat);
+          sw.position.set(p.x, -0.35, p.z);
+          cityGroup.add(sw);
+        });
+
+        // Building colors
+        const bColors = [0x8899aa, 0x7788aa, 0x667799, 0x99aabb, 0x6677888, 0xaabbcc, 0x556677, 0x778899];
+        const windowColor = 0xffffcc;
+
+        // Seeded random for consistency
+        let seed = 42;
+        function rand() { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; }
+
+        // Generate city blocks on all four sides
+        const zones = [
+          { xMin: -280, xMax: -60, zMin: -280, zMax: -60 },
+          { xMin: 60, xMax: 280, zMin: -280, zMax: -60 },
+          { xMin: -280, xMax: -60, zMin: 60, zMax: 280 },
+          { xMin: 60, xMax: 280, zMin: 60, zMax: 280 },
+          { xMin: -280, xMax: -60, zMin: -50, zMax: 50 },
+          { xMin: 60, xMax: 280, zMin: -50, zMax: 50 },
+          { xMin: -50, xMax: 50, zMin: -280, zMax: -60 },
+          { xMin: -50, xMax: 50, zMin: 60, zMax: 280 },
+        ];
+
+        zones.forEach(zone => {
+          let x = zone.xMin;
+          while (x < zone.xMax) {
+            let z = zone.zMin;
+            while (z < zone.zMax) {
+              const w = 8 + rand() * 15;
+              const d = 8 + rand() * 15;
+              const h = 10 + rand() * 50;
+              const color = bColors[Math.floor(rand() * bColors.length)];
+
+              const bGeo = new T.BoxGeometry(w, h, d);
+              const bMat = new T.MeshLambertMaterial({ color });
+              const building = new T.Mesh(bGeo, bMat);
+              building.position.set(x + w/2, h/2 - 0.5, z + d/2);
+              building.castShadow = true;
+              building.receiveShadow = true;
+              cityGroup.add(building);
+
+              // Windows
+              const wMat = new T.MeshBasicMaterial({ color: rand() > 0.3 ? windowColor : 0x334455 });
+              const floors = Math.floor(h / 4);
+              for (let f = 0; f < floors; f++) {
+                const wy = 2 + f * 4 + h/2 - h - 0.5 + h;
+                // Front and back windows
+                for (let wx = -w/2 + 2; wx < w/2 - 1; wx += 3) {
+                  if (rand() > 0.4) {
+                    const win = new T.Mesh(new T.PlaneGeometry(1.5, 2), wMat);
+                    win.position.set(x + w/2 + wx, wy - h/2, z);
+                    cityGroup.add(win);
+                  }
+                }
+              }
+
+              z += d + 3 + rand() * 8;
+            }
+            x += 25 + rand() * 10;
+          }
+        });
+
+        // Trees along sidewalks
+        const treeTrunkMat = new T.MeshLambertMaterial({ color: 0x8B4513 });
+        const treeLeafMat = new T.MeshLambertMaterial({ color: 0x228B22 });
+        for (let i = -50; i <= 50; i += 12) {
+          [{ x: i, z: -56 }, { x: i, z: 56 }, { x: -56, z: i }, { x: 56, z: i }].forEach(p => {
+            const trunk = new T.Mesh(new T.CylinderGeometry(0.3, 0.4, 3), treeTrunkMat);
+            trunk.position.set(p.x, 1, p.z);
+            cityGroup.add(trunk);
+            const leaves = new T.Mesh(new T.SphereGeometry(2, 6, 6), treeLeafMat);
+            leaves.position.set(p.x, 3.5, p.z);
+            cityGroup.add(leaves);
+          });
+        }
+
+        // Sky gradient
+        if (sc.background === null || sc.background === undefined) {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1; canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const grad = ctx.createLinearGradient(0, 0, 0, 256);
+            grad.addColorStop(0, '#1a2a4a');
+            grad.addColorStop(0.4, '#4a7ab5');
+            grad.addColorStop(0.7, '#87CEEB');
+            grad.addColorStop(1.0, '#b8d4e8');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 1, 256);
+            const tex = new T.CanvasTexture(canvas);
+            tex.mapping = T.EquirectangularReflectionMapping;
+            sc.background = tex;
+          }
+        }
+
+        // Add ambient light if scene is dark
+        const ambientExists = sc.children.some((c: any) => c.isAmbientLight);
+        if (!ambientExists) {
+          sc.add(new T.AmbientLight(0xffffff, 0.4));
+        }
+
+        // Sun directional light
+        const sun = new T.DirectionalLight(0xfff5e6, 0.6);
+        sun.position.set(100, 150, 80);
+        sun.castShadow = true;
+        cityGroup.add(sun);
+
+        sc.add(cityGroup);
+      }
+
+      setTimeout(buildCity, 1500);
+    })();
+    </script>
+  `;
+
+  if (html.toLowerCase().includes('</body>')) {
+    return html.replace(/<\/body>/i, `${script}</body>`);
+  }
+  return html + script;
+};
+
+/**
  * Zooms the camera closer by scaling camera.position.set() values.
  */
 export const zoomCamera = (html: string, zoomFactor: number = 0.8): string => {
