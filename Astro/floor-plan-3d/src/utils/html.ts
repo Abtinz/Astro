@@ -158,7 +158,7 @@ export const injectWASDControls = (html: string): string => {
           cam.getWorldDirection(dir);
           dir.y = 0;
           if (dir.lengthSq() > 0) dir.normalize();
-          right.crossVectors(dir, cam.up).normalize();
+          right.crossVectors(cam.up, dir).normalize();
 
           if (hasAny(UP_KEYS)) move.add(dir);
           if (hasAny(DOWN_KEYS)) move.addScaledVector(dir, -1);
