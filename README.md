@@ -17,6 +17,20 @@
 
 ---
 
+## Demo
+
+<p align="center">
+  <a href="https://youtu.be/_V5rgec4Sr4">
+    <img src="https://img.youtube.com/vi/_V5rgec4Sr4/maxresdefault.jpg" alt="Astro AI Visualizer Suite Demo" width="80%" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/_V5rgec4Sr4">▶ Watch the full demo on YouTube</a>
+</p>
+
+---
+
 ## The Experience
 
 ### Scroll-Driven Landing Page
