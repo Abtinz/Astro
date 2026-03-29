@@ -37,9 +37,6 @@
 
 A cinematic, scroll-linked experience where a background video scrubs frame-by-frame as you scroll. Built with canvas-based frame pre-extraction for buttery-smooth playback, floating gold particles, parallax glass cards, and staggered reveal animations.
 
-<p align="center">
-  <img src="docs/screenshots/landing-scroll.png" alt="Scroll-driven landing with video scrubbing" width="80%" />
-</p>
 
 ### 3D Floor Plan Visualizer
 
