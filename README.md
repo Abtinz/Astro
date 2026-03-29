@@ -17,17 +17,18 @@
 
 ---
 
-## Demo
+## Demo Video
 
-<p align="center">
+<div align="center">
   <a href="https://youtu.be/_V5rgec4Sr4">
-    <img src="https://img.youtube.com/vi/_V5rgec4Sr4/maxresdefault.jpg" alt="Astro AI Visualizer Suite Demo" width="80%" />
+    <img src="https://img.youtube.com/vi/_V5rgec4Sr4/maxresdefault.jpg" alt="Astro AI Visualizer Suite — Demo Video" width="80%" />
   </a>
-</p>
-
-<p align="center">
-  <a href="https://youtu.be/_V5rgec4Sr4">▶ Watch the full demo on YouTube</a>
-</p>
+  <br/>
+  <br/>
+  <a href="https://youtu.be/_V5rgec4Sr4">
+    <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_Demo-YouTube-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo on YouTube" />
+  </a>
+</div>
 
 ---
 
