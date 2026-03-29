@@ -211,17 +211,6 @@ Both the landing page and app share a cohesive **cinematic noir luxury** aesthet
 - API calls are made client-side. Do not expose production keys in public deployments without a backend proxy.
 - `.env` files are gitignored and never committed.
 
----
-
-## Team Contributions
-
-| Member | Role | Contributions |
-|--------|------|--------------|
-| **Abtin Zandi** | Full-Stack Developer | AI pipeline architecture (Gemini integration for render + voxel generation), React app development, 3D scene post-processing (camera, WASD controls, environment injection), Vercel deployment & domain configuration |
-| **Sobhan Rahimian** | Frontend Developer & Designer | Scroll-driven landing page (canvas video scrubber, particle system, parallax effects), UI/UX design system (cinematic noir luxury theme), CSS animations & micro-interactions, responsive design |
-
----
-
 ## Source Code
 
 All source code is publicly available at: **[github.com/Abtinz/Astro](https://github.com/Abtinz/Astro)**
