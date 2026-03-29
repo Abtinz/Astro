@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://astro.sobhanra.com"><strong>Live Demo</strong></a> &nbsp;&middot;&nbsp;
   <a href="https://astro.sobhanra.com/app"><strong>Try the App</strong></a> &nbsp;&middot;&nbsp;
+  <a href="https://devpost.com/software/astro-wq7h2t"><strong>Devpost</strong></a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/Abtinz/Astro"><strong>Source Code</strong></a>
 </p>
 
@@ -29,6 +30,12 @@
     <img src="https://img.shields.io/badge/%E2%96%B6%EF%B8%8F_Watch_Demo-YouTube-red?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo on YouTube" />
   </a>
 </div>
+
+---
+
+## Devpost
+
+Project page: **[Astro on Devpost](https://devpost.com/software/astro-wq7h2t)**
 
 ---
 
