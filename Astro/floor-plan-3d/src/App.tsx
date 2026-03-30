@@ -3,7 +3,7 @@ import Stepper from './components/Stepper';
 import UploadZone from './components/UploadZone';
 import Viewer from './components/Viewer';
 import LoadingOverlay from './components/LoadingOverlay';
-import { generateFloorPlanRender, extractWallJSON, generateBaseScene, generateFurnitureScene, fixVoxelScene } from './services/gemini';
+import { generateFloorPlanRender, extractWallJSON, generateBaseScene, generateFurnitureScene, fixVoxelScene, setApiKey } from './services/gemini';
 import { hideBodyText, zoomCamera, injectWASDControls, injectCityEnvironment, fixZFighting } from './utils/html';
 import sampleStyleUrl from './assets/sample-style.jpg';
 import demoRenderUrl from './assets/demo-render.jpg';
@@ -17,6 +17,11 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [thinkingText, setThinkingText] = useState<string | null>(null);
+
+  // API Key — skip if env key exists (local dev) or demo mode
+  const hasEnvKey = !!process.env.API_KEY;
+  const [apiKey, setApiKeyState] = useState('');
+  const [apiKeySet, setApiKeySet] = useState(hasEnvKey);
 
   // Data
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -62,6 +67,12 @@ const App: React.FC = () => {
   }, []);
 
   const currentStep: 1 | 2 | 3 = voxelCode ? 3 : renderedImage ? 2 : 1;
+
+  const handleApiKeySubmit = () => {
+    if (!apiKey.trim()) return;
+    setApiKey(apiKey.trim());
+    setApiKeySet(true);
+  };
 
   const handleFileSelect = (base64: string) => {
     setUploadedImage(base64);
@@ -298,7 +309,37 @@ const App: React.FC = () => {
 
       <Stepper currentStep={currentStep} />
 
-      <div className="viewer-container">
+      {!apiKeySet && !isDemo && (
+        <div className="api-key-section">
+          <div className="api-key-card">
+            <div className="api-key-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+              </svg>
+            </div>
+            <h3>Enter Your Gemini API Key</h3>
+            <p className="api-key-hint">
+              Get a free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
+            </p>
+            <div className="api-key-input-row">
+              <input
+                type="password"
+                className="api-key-input"
+                placeholder="AIza..."
+                value={apiKey}
+                onChange={(e) => setApiKeyState(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleApiKeySubmit()}
+              />
+              <button className="btn btn-primary api-key-btn" onClick={handleApiKeySubmit} disabled={!apiKey.trim()}>
+                Continue
+              </button>
+            </div>
+            <p className="api-key-note">Your key stays in your browser and is never stored on our servers.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="viewer-container" style={!apiKeySet && !isDemo ? { display: 'none' } : undefined}>
         {/* Upload zone shown only when no image uploaded yet */}
         {!uploadedImage && !isLoading ? (
           <UploadZone onFileSelect={handleFileSelect} disabled={isLoading} />
@@ -323,7 +364,7 @@ const App: React.FC = () => {
       )}
 
       {/* Action Buttons */}
-      <div className="actions">
+      <div className="actions" style={!apiKeySet && !isDemo ? { display: 'none' } : undefined}>
         {/* Generation buttons — primary actions first */}
         {uploadedImage && (
           <button className="btn btn-primary" onClick={handleGenerateRender} disabled={isLoading || !styleReference}>

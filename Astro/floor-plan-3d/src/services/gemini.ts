@@ -2,9 +2,18 @@ import { GoogleGenAI } from '@google/genai';
 import { extractHtmlFromText, extractJsonFromText } from '../utils/html';
 
 let _ai: GoogleGenAI | null = null;
+let _apiKey: string | null = null;
+
+export function setApiKey(key: string) {
+  _apiKey = key;
+  _ai = null;
+}
+
 function getAI(): GoogleGenAI {
+  const key = _apiKey || process.env.API_KEY;
+  if (!key) throw new Error('No API key provided. Please enter your Gemini API key.');
   if (!_ai) {
-    _ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    _ai = new GoogleGenAI({ apiKey: key });
   }
   return _ai;
 }
